@@ -8,6 +8,7 @@
 import Foundation
 import SwiftUI
 import Combine
+import AudioToolbox
 
 /// Pomodoro计时器ViewModel - 统一计时器逻辑，分离业务逻辑
 class PomodoroTimerViewModel: ObservableObject {
@@ -89,7 +90,7 @@ class PomodoroTimerViewModel: ObservableObject {
         let totalSeconds = selectedMinutes * 60
 
         // 保存当前设置到数据库
-        Task {
+        Task { [databaseService, timeType, selectedMinutes] in
             do {
                 try await databaseService.saveTimerSetting(
                     minutes: selectedMinutes,
@@ -151,20 +152,25 @@ class PomodoroTimerViewModel: ObservableObject {
 
         notificationService.provideImpactFeedback(.medium)
 
-        Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { timer in
-            let newProgress = stopButtonProgress - 0.1/3.0
+        Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] timer in
+            guard let self = self else {
+                timer.invalidate()
+                return
+            }
+
+            let newProgress = self.stopButtonProgress - 0.1/3.0
 
             if newProgress <= 0 {
                 timer.invalidate()
 
                 withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-                    stopTimer()
-                    resetStopButton()
+                    self.stopTimer()
+                    self.resetStopButton()
                 }
 
-                notificationService.provideNotificationFeedback(.success)
+                self.notificationService.provideNotificationFeedback(.success)
             } else {
-                stopButtonProgress = newProgress
+                self.stopButtonProgress = newProgress
             }
         }
     }
@@ -197,20 +203,22 @@ class PomodoroTimerViewModel: ObservableObject {
     }
 
     private func loadUserSettings() {
-        Task {
+        Task { [databaseService] in
             do {
                 let settings = try await databaseService.getDefaultTimerSettings()
                 await MainActor.run {
-                    selectedMinutes = settings.minutes
+                    self.selectedMinutes = settings.minutes
                     if let savedType = ThemeStyles.BeautifulQuickSelectButtonStyle.TimeType(rawValue: settings.timeType) {
-                        timeType = savedType
+                        self.timeType = savedType
                     }
                 }
             } catch {
                 print("加载用户设置失败: \(error)")
                 // 使用默认值
-                selectedMinutes = 25
-                timeType = .work
+                await MainActor.run {
+                    self.selectedMinutes = 25
+                    self.timeType = .work
+                }
             }
         }
     }
@@ -219,7 +227,7 @@ class PomodoroTimerViewModel: ObservableObject {
         guard let userInfo = notification.userInfo,
               let totalTime = userInfo["totalTime"] as? Int else { return }
 
-        Task {
+        Task { [databaseService, notificationService, timeType] in
             do {
                 let minutes = totalTime / 60
                 try await databaseService.saveCompletedTimer(
@@ -297,9 +305,11 @@ class DefaultNotificationService: NotificationServiceProtocol {
 
     func playCompletionSound() async {
         // 播放系统提示音
-        await withCheckedContinuation { continuation in
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             AudioServicesPlaySystemSound(1005) // 系统提示音
-            continuation.resume()
+            DispatchQueue.main.async {
+                continuation.resume()
+            }
         }
     }
 }
