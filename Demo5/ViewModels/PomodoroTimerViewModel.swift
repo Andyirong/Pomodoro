@@ -90,15 +90,11 @@ class PomodoroTimerViewModel: ObservableObject {
         let totalSeconds = selectedMinutes * 60
 
         // 保存当前设置到数据库
-        Task { [weak self] in
-            guard let self = self else { return }
-
-            do {
-                try await self.databaseService.saveTimerSetting(
-                    minutes: self.selectedMinutes,
-                    timeType: self.timeType.rawValue
-                )
-            } catch {
+        databaseService.saveTimerSetting(
+            minutes: selectedMinutes,
+            timeType: timeType.rawValue
+        ) { error in
+            if let error = error {
                 print("保存计时器设置失败: \(error)")
             }
         }
@@ -205,21 +201,19 @@ class PomodoroTimerViewModel: ObservableObject {
     }
 
     private func loadUserSettings() {
-        Task { [weak self] in
-            guard let self = self else { return }
+        databaseService.getDefaultTimerSettings { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
 
-            do {
-                let settings = try await self.databaseService.getDefaultTimerSettings()
-                await MainActor.run {
+                switch result {
+                case .success(let settings):
                     self.selectedMinutes = settings.minutes
                     if let savedType = ThemeStyles.BeautifulQuickSelectButtonStyle.TimeType(rawValue: settings.timeType) {
                         self.timeType = savedType
                     }
-                }
-            } catch {
-                print("加载用户设置失败: \(error)")
-                // 使用默认值
-                await MainActor.run {
+                case .failure(let error):
+                    print("加载用户设置失败: \(error)")
+                    // 使用默认值
                     self.selectedMinutes = 25
                     self.timeType = .work
                 }
@@ -231,23 +225,20 @@ class PomodoroTimerViewModel: ObservableObject {
         guard let userInfo = notification.userInfo,
               let totalTime = userInfo["totalTime"] as? Int else { return }
 
-        Task { [weak self] in
-            guard let self = self else { return }
-
-            do {
-                let minutes = totalTime / 60
-                try await self.databaseService.saveCompletedTimer(
-                    minutes: minutes,
-                    timeType: self.timeType.rawValue,
-                    completedAt: Date()
-                )
-
-                // 播放完成通知
-                await self.notificationService.playCompletionSound()
-                self.notificationService.provideNotificationFeedback(.success)
-
-            } catch {
+        let minutes = totalTime / 60
+        databaseService.saveCompletedTimer(
+            minutes: minutes,
+            timeType: timeType.rawValue,
+            completedAt: Date()
+        ) { [weak self] error in
+            if let error = error {
                 print("保存完成的计时器记录失败: \(error)")
+                return
+            }
+
+            // 播放完成通知
+            self?.notificationService.playCompletionSound {
+                self?.notificationService.provideNotificationFeedback(.success)
             }
         }
     }
@@ -261,32 +252,34 @@ class PomodoroTimerViewModel: ObservableObject {
 
 // MARK: - Service Protocols
 protocol DatabaseServiceProtocol {
-    func saveTimerSetting(minutes: Int, timeType: String) async throws
-    func getDefaultTimerSettings() async throws -> (minutes: Int, timeType: String)
-    func saveCompletedTimer(minutes: Int, timeType: String, completedAt: Date) async throws
+    func saveTimerSetting(minutes: Int, timeType: String, completion: @escaping (Error?) -> Void)
+    func getDefaultTimerSettings(completion: @escaping (Result<(minutes: Int, timeType: String), Error>) -> Void)
+    func saveCompletedTimer(minutes: Int, timeType: String, completedAt: Date, completion: @escaping (Error?) -> Void)
 }
 
 protocol NotificationServiceProtocol {
     func provideImpactFeedback(_ style: UIImpactFeedbackGenerator.FeedbackStyle)
     func provideNotificationFeedback(_ type: UINotificationFeedbackGenerator.FeedbackType)
-    func playCompletionSound() async
+    func playCompletionSound(completion: @escaping () -> Void)
 }
 
 // MARK: - Default Service Implementations
 class DefaultDatabaseService: DatabaseServiceProtocol {
-    func saveTimerSetting(minutes: Int, timeType: String) async throws {
+    func saveTimerSetting(minutes: Int, timeType: String, completion: @escaping (Error?) -> Void) {
         // 暂时使用UserDefaults保存，避免SQLite依赖问题
         UserDefaults.standard.set(minutes, forKey: "last_selected_minutes")
         UserDefaults.standard.set(timeType, forKey: "last_selected_type")
+        completion(nil)
     }
 
-    func getDefaultTimerSettings() async throws -> (minutes: Int, timeType: String) {
+    func getDefaultTimerSettings(completion: @escaping (Result<(minutes: Int, timeType: String), Error>) -> Void) {
         let minutes = UserDefaults.standard.integer(forKey: "default_minutes")
         let timeType = UserDefaults.standard.string(forKey: "default_time_type") ?? "work"
-        return (minutes: minutes > 0 ? minutes : 25, timeType: timeType)
+        let result = (minutes: minutes > 0 ? minutes : 25, timeType: timeType)
+        completion(.success(result))
     }
 
-    func saveCompletedTimer(minutes: Int, timeType: String, completedAt: Date) async throws {
+    func saveCompletedTimer(minutes: Int, timeType: String, completedAt: Date, completion: @escaping (Error?) -> Void) {
         // 暂时使用UserDefaults保存统计信息
         let completedCount = UserDefaults.standard.integer(forKey: "completed_tomatoes") + 1
         UserDefaults.standard.set(completedCount, forKey: "completed_tomatoes")
@@ -295,6 +288,7 @@ class DefaultDatabaseService: DatabaseServiceProtocol {
         UserDefaults.standard.set(totalMinutes, forKey: "total_minutes")
 
         print("✅ 保存完成的计时器记录: \(minutes)分钟")
+        completion(nil)
     }
 }
 
@@ -309,13 +303,11 @@ class DefaultNotificationService: NotificationServiceProtocol {
         notificationFeedback.notificationOccurred(type)
     }
 
-    func playCompletionSound() async {
+    func playCompletionSound(completion: @escaping () -> Void) {
         // 播放系统提示音
-        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            AudioServicesPlaySystemSound(1005) // 系统提示音
-            DispatchQueue.main.async {
-                continuation.resume()
-            }
+        AudioServicesPlaySystemSound(1005) // 系统提示音
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            completion()
         }
     }
 }

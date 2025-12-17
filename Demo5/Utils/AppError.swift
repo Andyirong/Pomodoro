@@ -174,20 +174,17 @@ struct ErrorHandler {
 
     /// 安全执行异步操作
     static func safeAsyncExecute<T>(
-        _ operation: @escaping () async throws -> T,
+        _ operation: @escaping (@escaping (Result<T, Error>) -> Void) -> Void,
         onSuccess: @escaping (T) -> Void,
         onError: @escaping (AppError) -> Void
     ) {
-        Task {
-            do {
-                let result = try await operation()
-                await MainActor.run {
-                    onSuccess(result)
-                }
-            } catch {
-                let appError = AppError.unknown(error)
-                await MainActor.run {
-                    onError(appError)
+        operation { result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let value):
+                    onSuccess(value)
+                case .failure(let error):
+                    onError(AppError.unknown(error))
                 }
             }
         }
