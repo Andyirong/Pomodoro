@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		E73971212EF291FB009BDE1B /* QuickTimePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = E73971202EF291FB009BDE1B /* QuickTimePicker.swift */; };
 		E747C8372EF26C4F002D93A1 /* StatsDAO.swift in Sources */ = {isa = PBXBuildFile; fileRef = E747C8242EF26C4E002D93A1 /* StatsDAO.swift */; };
 		E747C8382EF26C4F002D93A1 /* TaskDAO.swift in Sources */ = {isa = PBXBuildFile; fileRef = E747C8252EF26C4E002D93A1 /* TaskDAO.swift */; };
 		E747C8392EF26C4F002D93A1 /* TimerDAO.swift in Sources */ = {isa = PBXBuildFile; fileRef = E747C8262EF26C4E002D93A1 /* TimerDAO.swift */; };
@@ -28,6 +29,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		E73971202EF291FB009BDE1B /* QuickTimePicker.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = QuickTimePicker.swift; sourceTree = "<group>"; };
 		E747C8242EF26C4E002D93A1 /* StatsDAO.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = StatsDAO.swift; sourceTree = "<group>"; };
 		E747C8252EF26C4E002D93A1 /* TaskDAO.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TaskDAO.swift; sourceTree = "<group>"; };
 		E747C8262EF26C4E002D93A1 /* TimerDAO.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TimerDAO.swift; sourceTree = "<group>"; };
@@ -117,6 +119,7 @@
 		E747C8352EF26C4E002D93A1 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				E73971202EF291FB009BDE1B /* QuickTimePicker.swift */,
 				E747C8362EF26C4E002D93A1 /* TimerView.swift */,
 			);
 			path = Views;
@@ -250,6 +253,7 @@
 				E747C83A2EF26C4F002D93A1 /* DatabaseManager.swift in Sources */,
 				E747C83F2EF26C4F002D93A1 /* ThemeStyles.swift in Sources */,
 				E747C8372EF26C4F002D93A1 /* StatsDAO.swift in Sources */,
+				E73971212EF291FB009BDE1B /* QuickTimePicker.swift in Sources */,
 				E760B9B12EF24BD6006DB40F /* Demo5App.swift in Sources */,
 				E747C83C2EF26C4F002D93A1 /* Achievement.swift in Sources */,
 				E747C83B2EF26C4F002D93A1 /* UserStats.swift in Sources */,

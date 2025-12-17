@@ -76,6 +76,157 @@ struct ThemeStyles {
         }
     }
 
+    struct QuickSelectButtonStyle: ButtonStyle {
+        let isSelected: Bool
+        let isEnabled: Bool
+
+        init(isSelected: Bool = false, isEnabled: Bool = true) {
+            self.isSelected = isSelected
+            self.isEnabled = isEnabled
+        }
+
+        func makeBody(configuration: Configuration) -> some View {
+            configuration.label
+                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                .foregroundColor(isEnabled ? (isSelected ? Color.white : Color.textPrimary) : Color.textSecondary)
+                .frame(height: 44)
+                .frame(maxWidth: .infinity)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(
+                            LinearGradient(
+                                colors: isSelected && isEnabled
+                                    ? [Color.primaryButton, Color.primaryButton.opacity(0.8)]
+                                    : isEnabled
+                                        ? [Color.cardBackground, Color.cardBackground.opacity(0.9)]
+                                        : [Color.secondaryText.opacity(0.3), Color.secondaryText.opacity(0.2)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(
+                                    isSelected && isEnabled
+                                        ? Color.primaryButton.opacity(0.3)
+                                        : Color.clear,
+                                    lineWidth: 1
+                                )
+                        )
+                        .shadow(
+                            color: isSelected && isEnabled
+                                ? Color.primaryButton.opacity(0.3)
+                                : Color.cardShadow.opacity(configuration.isPressed ? 0.0 : 0.2),
+                            radius: isSelected && isEnabled ? 6 : 3,
+                            x: 0,
+                            y: isSelected && isEnabled ? 3 : 2
+                        )
+                        .opacity(configuration.isPressed ? 0.85 : (isEnabled ? 1.0 : 0.5))
+                )
+                .scaleEffect(
+                    configuration.isPressed
+                        ? 0.96
+                        : (isSelected && isEnabled ? 1.02 : 1.0)
+                )
+                .animation(
+                    .spring(response: 0.3, dampingFraction: 0.6, blendDuration: 0),
+                    value: configuration.isPressed
+                )
+                .animation(
+                    .easeInOut(duration: 0.2),
+                    value: isSelected
+                )
+        }
+    }
+
+    struct BeautifulQuickSelectButtonStyle: ButtonStyle {
+        let isSelected: Bool
+        let isEnabled: Bool
+        let timeType: TimeType
+
+        enum TimeType {
+            case work  // 工作25分钟
+            case shortBreak  // 短休息5分钟
+            case longBreak  // 长休息15分钟
+        }
+
+        init(isSelected: Bool = false, isEnabled: Bool = true, timeType: TimeType = .work) {
+            self.isSelected = isSelected
+            self.isEnabled = isEnabled
+            self.timeType = timeType
+        }
+
+        func makeBody(configuration: Configuration) -> some View {
+            configuration.label
+                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .foregroundColor(
+                    isEnabled
+                        ? (isSelected ? Color.white : getTimeTypeColor())
+                        : Color.textSecondary
+                )
+                .frame(height: 60)
+                .frame(maxWidth: .infinity)
+                .background(
+                    RoundedRectangle(cornerRadius: 15)
+                        .fill(
+                            isSelected && isEnabled
+                                ? LinearGradient(
+                                    colors: [getTimeTypeColor(), getTimeTypeColor().opacity(0.8)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                                : LinearGradient(
+                                    colors: [Color.white.opacity(0.95), Color.white.opacity(0.85)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 15)
+                                .stroke(
+                                    isSelected && isEnabled
+                                        ? Color.clear
+                                        : getTimeTypeColor().opacity(0.3),
+                                    lineWidth: 2
+                                )
+                        )
+                        .shadow(
+                            color: isSelected && isEnabled
+                                ? getTimeTypeColor().opacity(0.4)
+                                : getTimeTypeColor().opacity(configuration.isPressed ? 0.2 : 0.1),
+                            radius: isSelected && isEnabled ? 8 : 5,
+                            x: 0,
+                            y: isSelected && isEnabled ? 4 : 2
+                        )
+                        .opacity(configuration.isPressed ? 0.9 : (isEnabled ? 1.0 : 0.6))
+                )
+                .scaleEffect(
+                    configuration.isPressed
+                        ? 0.95
+                        : (isSelected && isEnabled ? 1.03 : 1.0)
+                )
+                .animation(
+                    .spring(response: 0.4, dampingFraction: 0.7, blendDuration: 0),
+                    value: configuration.isPressed
+                )
+                .animation(
+                    .spring(response: 0.3, dampingFraction: 0.8, blendDuration: 0),
+                    value: isSelected
+                )
+        }
+
+        private func getTimeTypeColor() -> Color {
+            switch timeType {
+            case .work:
+                return Color.themeWorkPink  // 工作时间粉色
+            case .shortBreak:
+                return Color.themeBreakMint  // 休息薄荷绿
+            case .longBreak:
+                return Color.themeLongBreakPurple  // 长休息淡紫
+            }
+        }
+    }
+
     // MARK: - 卡片样式
     struct CardStyle: ViewModifier {
         let cornerRadius: CGFloat
@@ -204,6 +355,18 @@ extension View {
 
     func iconButtonStyle(size: CGFloat = 44, backgroundColor: Color = Color.secondaryButton) -> some View {
         self.buttonStyle(ThemeStyles.IconButtonStyle(iconSize: size, backgroundColor: backgroundColor))
+    }
+
+    func beautifulQuickSelectButtonStyle(
+        isSelected: Bool = false,
+        isEnabled: Bool = true,
+        timeType: ThemeStyles.BeautifulQuickSelectButtonStyle.TimeType = .work
+    ) -> some View {
+        self.buttonStyle(ThemeStyles.BeautifulQuickSelectButtonStyle(
+            isSelected: isSelected,
+            isEnabled: isEnabled,
+            timeType: timeType
+        ))
     }
 
     func cardStyle(cornerRadius: CGFloat = 16, shadowRadius: CGFloat = 8) -> some View {

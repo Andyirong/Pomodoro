@@ -13,6 +13,7 @@ struct ContentView: View {
     @State private var isActive: Bool = false
     @State private var progress: Double = 1.0
     @State private var timer: Timer?
+    @State private var selectedThemeType: ThemeStyles.BeautifulQuickSelectButtonStyle.TimeType = .work
 
     var body: some View {
         ZStack {
@@ -37,14 +38,15 @@ struct ContentView: View {
                 // 倒计时显示区域
                 ZStack {
                     Circle()
-                        .stroke(Color.white.opacity(0.5), lineWidth: 12)
+                        .stroke(getCurrentThemeColor().opacity(0.3), lineWidth: 12)
                         .frame(width: 250, height: 250)
+                        .animation(.easeInOut(duration: 0.5), value: selectedThemeType)
 
                     Circle()
                         .trim(from: 0, to: progress)
                         .stroke(
                             LinearGradient(
-                                colors: [Color(red: 0.95, green: 0.7, blue: 0.8), Color(red: 0.85, green: 0.6, blue: 0.75)],
+                                colors: [getCurrentThemeColor(), getCurrentThemeColor().opacity(0.7)],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             ),
@@ -52,15 +54,18 @@ struct ContentView: View {
                         )
                         .frame(width: 250, height: 250)
                         .rotationEffect(.degrees(-90))
+                        .animation(.easeInOut(duration: 0.5), value: selectedThemeType)
 
                     VStack(spacing: 10) {
                         Text(displayTime)
                             .font(.system(size: 56, weight: .bold, design: .rounded))
-                            .foregroundColor(Color(red: 0.4, green: 0.3, blue: 0.4))
+                            .foregroundColor(getContrastTextColor(backgroundColor: getCurrentThemeColor()))
+                            .animation(.easeInOut(duration: 0.5), value: selectedThemeType)
 
                         Text(isActive ? "专注中..." : "准备好开始了吗？")
                             .font(.headline)
-                            .foregroundColor(Color(red: 0.6, green: 0.5, blue: 0.6))
+                            .foregroundColor(getContrastTextColor(backgroundColor: getCurrentThemeColor()).opacity(0.8))
+                            .animation(.easeInOut(duration: 0.5), value: selectedThemeType)
                     }
                 }
                 .scaleEffect(isActive ? 1.05 : 1.0)
@@ -74,13 +79,14 @@ struct ContentView: View {
                     Button(action: resetTimer) {
                         Image(systemName: "arrow.clockwise")
                             .font(.title2)
+                            .foregroundColor(getContrastTextColor(backgroundColor: getCurrentThemeColor()))
                     }
                     .frame(width: 50, height: 50)
                     .background(
                         Circle()
-                            .fill(Color(red: 0.9, green: 0.85, blue: 0.9))
+                            .fill(getCurrentThemeColor().opacity(0.7))
                     )
-                    .foregroundColor(Color(red: 0.4, green: 0.3, blue: 0.4))
+                    .animation(.easeInOut(duration: 0.3), value: selectedThemeType)
 
                     // 开始/暂停按钮
                     Button(action: toggleTimer) {
@@ -91,9 +97,10 @@ struct ContentView: View {
                     .frame(width: 70, height: 70)
                     .background(
                         Circle()
-                            .fill(Color(red: 0.95, green: 0.75, blue: 0.85))
+                            .fill(getCurrentThemeColor())
                     )
-                    .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+                    .shadow(color: getCurrentThemeColor().opacity(0.3), radius: 8, x: 0, y: 4)
+                    .animation(.easeInOut(duration: 0.3), value: selectedThemeType)
 
                     // 停止按钮
                     Button(action: stopTimer) {
@@ -104,41 +111,23 @@ struct ContentView: View {
                     .frame(width: 50, height: 50)
                     .background(
                         Circle()
-                            .fill(Color(red: 1.0, green: 0.75, blue: 0.75))
+                            .fill(getCurrentThemeColor().opacity(0.8))
                     )
+                    .animation(.easeInOut(duration: 0.3), value: selectedThemeType)
                 }
 
                 Spacer()
 
-                // 快速时间选择
-                VStack(spacing: 15) {
-                    Text("快速选择")
-                        .font(.headline)
-                        .foregroundColor(Color(red: 0.4, green: 0.3, blue: 0.4))
-
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 10) {
-                        ForEach([15, 25, 30, 45, 60, 90], id: \.self) { mins in
-                            Button(action: {
-                                if !isActive {
-                                    minutes = mins
-                                    seconds = 0
-                                    progress = 1.0
-                                }
-                            }) {
-                                Text("\(mins)分")
-                                    .font(.system(size: 14, weight: .medium))
-                                    .foregroundColor(Color(red: 0.4, green: 0.3, blue: 0.4))
-                            }
-                            .frame(height: 40)
-                            .background(
-                                RoundedRectangle(cornerRadius: 10)
-                                    .fill(Color.white.opacity(0.8))
-                                    .shadow(color: Color.black.opacity(0.1), radius: 3, x: 0, y: 2)
-                            )
-                            .disabled(isActive)
+                // 美好快速选择按钮
+                QuickTimePicker(selectedTime: $minutes, selectedThemeType: $selectedThemeType, isActive: isActive)
+                    .onChange(of: minutes) { _, newValue in
+                        // 当选择新时间时，重置秒数和进度
+                        if !isActive {
+                            seconds = 0
+                            updateProgressForTime(newValue)
                         }
                     }
-                }
+                    .padding(.horizontal, 8)
 
                 Spacer()
             }
@@ -150,6 +139,31 @@ struct ContentView: View {
         let mins = minutes < 10 ? "0\(minutes)" : "\(minutes)"
         let secs = seconds < 10 ? "0\(seconds)" : "\(seconds)"
         return "\(mins):\(secs)"
+    }
+
+    // 获取当前选中的主题颜色
+    private func getCurrentThemeColor() -> Color {
+        switch selectedThemeType {
+        case .work:
+            return Color.themeWorkPink
+        case .shortBreak:
+            return Color.themeBreakMint
+        case .longBreak:
+            return Color.themeLongBreakPurple
+        }
+    }
+
+    // 根据背景色获取对比色（黑色或白色）
+    private func getContrastTextColor(backgroundColor: Color) -> Color {
+        // 简化的对比度计算，基于颜色的亮度
+        switch selectedThemeType {
+        case .work, .longBreak:
+            // 粉色和紫色背景，使用白色文字
+            return .white
+        case .shortBreak:
+            // 薄荷绿背景，使用深色文字以保证可读性
+            return Color(red: 0.2, green: 0.4, blue: 0.3)
+        }
     }
 
     private func toggleTimer() {
@@ -208,6 +222,13 @@ struct ContentView: View {
     private func updateProgress() {
         let totalSeconds = minutes * 60 + seconds
         let initialTotal = 25 * 60 // 假设初始为25分钟
+        progress = Double(totalSeconds) / Double(initialTotal)
+    }
+
+    private func updateProgressForTime(_ newMinutes: Int) {
+        // 根据选择的时间更新进度条
+        let totalSeconds = newMinutes * 60
+        let initialTotal = 25 * 60 // 基准时间为25分钟
         progress = Double(totalSeconds) / Double(initialTotal)
     }
 

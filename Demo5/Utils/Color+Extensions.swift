@@ -11,7 +11,6 @@ extension Color {
     // MARK: - 主题粉色系
     static let themePink = Color(red: 1.0, green: 0.9, blue: 0.95) // 粉色背景
     static let themeDarkPink = Color(red: 0.95, green: 0.7, blue: 0.8) // 深粉色
-    static let themeLightPink = Color(red: 1.0, green: 0.95, blue: 0.97) // 浅粉色
     static let themePurple = Color(red: 0.85, green: 0.7, blue: 0.95) // 紫色
 
     // MARK: - 马卡龙色系
@@ -20,6 +19,14 @@ extension Color {
     static let macaronLavender = Color(red: 0.9, green: 0.85, blue: 0.95) // 薰衣草紫
     static let macaronPeach = Color(red: 1.0, green: 0.9, blue: 0.85) // 蜜桃橙
     static let macaronLemon = Color(red: 1.0, green: 0.98, blue: 0.85) // 柠檬黄
+
+    // MARK: - 新主题色调（基于图片）
+    static let themeMainPink = Color(red: 0.96, green: 0.82, blue: 0.86) // 主题粉色
+    static let themeDeepPink = Color(red: 0.88, green: 0.68, blue: 0.74) // 深粉色
+    static let themeLightPink = Color(red: 0.98, green: 0.92, blue: 0.94) // 浅粉色
+    static let themeWorkPink = Color(red: 0.95, green: 0.83, blue: 0.87) // 工作时间粉色
+    static let themeBreakMint = Color(red: 0.82, green: 0.89, blue: 0.86) // 休息薄荷绿
+    static let themeLongBreakPurple = Color(red: 0.88, green: 0.83, blue: 0.90) // 长休息淡紫
 
     // MARK: - 渐变色
     static let pinkGradient = LinearGradient(
