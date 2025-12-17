@@ -55,9 +55,9 @@ class TimerDAO {
             sqlite3_bind_int(statement, 1, Int32(limit))
 
             while sqlite3_step(statement) == SQLITE_ROW {
-                let id = sqlite3_column_int(statement, 0)
-                let minutes = sqlite3_column_int(statement, 1)
-                let seconds = sqlite3_column_int(statement, 2)
+                let id = Int(sqlite3_column_int(statement, 0))
+                let minutes = Int(sqlite3_column_int(statement, 1))
+                let seconds = Int(sqlite3_column_int(statement, 2))
 
                 let notePtr = sqlite3_column_text(statement, 3)
                 let note = notePtr != nil ? String(cString: notePtr!) : ""
@@ -65,7 +65,7 @@ class TimerDAO {
                 let createdAtPtr = sqlite3_column_text(statement, 4)
                 let createdAtString = createdAtPtr != nil ? String(cString: createdAtPtr!) : ""
 
-                let usageCount = sqlite3_column_int(statement, 5)
+                let usageCount = Int(sqlite3_column_int(statement, 5))
 
                 let formatter = DateFormatter()
                 formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"

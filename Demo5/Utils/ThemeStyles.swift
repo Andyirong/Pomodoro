@@ -188,7 +188,6 @@ struct ThemeStyles {
         func body(content: Content) -> some View {
             content
                 .rotationEffect(.degrees(-90))
-                .animation(.linear, value: content)
         }
     }
 }

@@ -172,7 +172,7 @@ class TaskDAO {
             bind?(statement)
 
             while sqlite3_step(statement) == SQLITE_ROW {
-                let id = sqlite3_column_int(statement, 0)
+                let id = Int(sqlite3_column_int(statement, 0))
 
                 let titlePtr = sqlite3_column_text(statement, 1)
                 let title = titlePtr != nil ? String(cString: titlePtr!) : ""
@@ -192,7 +192,7 @@ class TaskDAO {
                     deadline = formatter.date(from: deadlineString)
                 }
 
-                let completed = sqlite3_column_int(statement, 5) == 1
+                let completed = Int(sqlite3_column_int(statement, 5)) == 1
 
                 let createdAtPtr = sqlite3_column_text(statement, 6)
                 let createdString = createdAtPtr != nil ? String(cString: createdAtPtr!) : ""

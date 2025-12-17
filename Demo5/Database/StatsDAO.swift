@@ -55,9 +55,9 @@ class StatsDAO {
             sqlite3_bind_text(statement, 1, dateString, -1, nil)
 
             if sqlite3_step(statement) == SQLITE_ROW {
-                let totalMinutes = sqlite3_column_int(statement, 1)
-                let completedTomatoes = sqlite3_column_int(statement, 2)
-                let tasksDone = sqlite3_column_int(statement, 3)
+                let totalMinutes = Int(sqlite3_column_int(statement, 1))
+                let completedTomatoes = Int(sqlite3_column_int(statement, 2))
+                let tasksDone = Int(sqlite3_column_int(statement, 3))
 
                 sqlite3_finalize(statement)
                 return (
@@ -122,9 +122,9 @@ class StatsDAO {
             sqlite3_bind_text(statement, 2, endDateString, -1, nil)
 
             if sqlite3_step(statement) == SQLITE_ROW {
-                totalMinutes = sqlite3_column_int(statement, 0)
-                completedTomatoes = sqlite3_column_int(statement, 1)
-                tasksDone = sqlite3_column_int(statement, 2)
+                totalMinutes = Int(sqlite3_column_int(statement, 0))
+                completedTomatoes = Int(sqlite3_column_int(statement, 1))
+                tasksDone = Int(sqlite3_column_int(statement, 2))
             }
         }
 
@@ -148,9 +148,9 @@ class StatsDAO {
                 let datePtr = sqlite3_column_text(statement, 0)
                 let date = datePtr != nil ? String(cString: datePtr!) : ""
 
-                let totalMinutes = sqlite3_column_int(statement, 1)
-                let completedTomatoes = sqlite3_column_int(statement, 2)
-                let tasksDone = sqlite3_column_int(statement, 3)
+                let totalMinutes = Int(sqlite3_column_int(statement, 1))
+                let completedTomatoes = Int(sqlite3_column_int(statement, 2))
+                let tasksDone = Int(sqlite3_column_int(statement, 3))
 
                 stats.append((
                     date: date,
@@ -176,9 +176,9 @@ class StatsDAO {
 
         if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
             if sqlite3_step(statement) == SQLITE_ROW {
-                totalMinutes = sqlite3_column_int(statement, 0)
-                completedTomatoes = sqlite3_column_int(statement, 1)
-                tasksDone = sqlite3_column_int(statement, 2)
+                totalMinutes = Int(sqlite3_column_int(statement, 0))
+                completedTomatoes = Int(sqlite3_column_int(statement, 1))
+                tasksDone = Int(sqlite3_column_int(statement, 2))
             }
         }
 
