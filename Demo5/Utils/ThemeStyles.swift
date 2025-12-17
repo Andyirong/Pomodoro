@@ -144,7 +144,7 @@ struct ThemeStyles {
         let isEnabled: Bool
         let timeType: TimeType
 
-        enum TimeType {
+        enum TimeType: String {
             case work  // 工作25分钟
             case shortBreak  // 短休息5分钟
             case longBreak  // 长休息15分钟

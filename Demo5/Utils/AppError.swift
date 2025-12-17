@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import AudioToolbox
 
 /// 应用程序错误类型
 enum AppError: Error, LocalizedError {

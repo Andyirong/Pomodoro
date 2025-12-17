@@ -59,17 +59,17 @@ struct PomodoroContentView: View {
 
     private var backgroundGradient: some View {
         LinearGradient(
-            colors: AppConfig.Colors.backgroundGradient,
+            colors: AppConfiguration.shared.colors.backgroundGradient,
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
     }
 
     private var titleSection: some View {
-        Text(AppConfig.UI.appTitle)
+        Text(AppConfiguration.shared.ui.appTitle)
             .font(.largeTitle)
             .fontWeight(.bold)
-            .foregroundColor(AppConfig.Colors.titleColor)
+            .foregroundColor(AppConfiguration.shared.colors.titleColor)
             .padding(.top, 50)
     }
 
@@ -78,7 +78,7 @@ struct PomodoroContentView: View {
             // 背景圆环
             Circle()
                 .stroke(currentThemeColor.opacity(0.3), lineWidth: 12)
-                .frame(width: AppConfig.UI.timerCircleSize, height: AppConfig.UI.timerCircleSize)
+                .frame(width: AppConfiguration.shared.ui.timerCircleSize, height: AppConfiguration.shared.ui.timerCircleSize)
                 .animation(.easeInOut(duration: 0.5), value: viewModel.timeType)
 
             // 进度圆环
@@ -92,7 +92,7 @@ struct PomodoroContentView: View {
                     ),
                     style: StrokeStyle(lineWidth: 12, lineCap: .round)
                 )
-                .frame(width: AppConfig.UI.timerCircleSize, height: AppConfig.UI.timerCircleSize)
+                .frame(width: AppConfiguration.shared.ui.timerCircleSize, height: AppConfiguration.shared.ui.timerCircleSize)
                 .rotationEffect(.degrees(-90))
                 .animation(.easeInOut(duration: 0.5), value: viewModel.timeType)
 
@@ -247,58 +247,15 @@ struct PomodoroContentView: View {
     // MARK: - Computed Properties
 
     private var currentThemeColor: Color {
-        ThemeColorHelper.color(for: viewModel.timeType)
+        AppConfiguration.shared.colors.color(for: viewModel.timeType)
     }
 
     private var contrastTextColor: Color {
-        ThemeColorHelper.contrastTextColor(for: viewModel.timeType)
+        AppConfiguration.shared.colors.contrastTextColor(for: viewModel.timeType)
     }
 }
 
-// MARK: - Configuration Helper
-enum AppConfig {
-    enum UI {
-        static let appTitle = "番茄闹钟"
-        static let timerCircleSize: CGFloat = 250
-    }
-
-    enum Colors {
-        static let backgroundGradient = [
-            Color(red: 1.0, green: 0.95, blue: 0.97),
-            Color(red: 1.0, green: 0.9, blue: 0.95)
-        ]
-        static let titleColor = Color(red: 0.4, green: 0.3, blue: 0.4)
-    }
-}
-
-// MARK: - Theme Color Helper
-enum ThemeColorHelper {
-    static func color(for timeType: ThemeStyles.BeautifulQuickSelectButtonStyle.TimeType) -> Color {
-        switch timeType {
-        case .work:
-            return Color.themeWorkPink
-        case .shortBreak:
-            return Color.themeBreakMint
-        case .longBreak:
-            return Color.themeLongBreakPurple
-        case .focus45, .focus60:
-            return Color.themeFocusDeepPink
-        case .break10, .break20:
-            return Color.themeBreakLightMint
-        case .custom:
-            return Color.themeCustomPurple
-        }
-    }
-
-    static func contrastTextColor(for timeType: ThemeStyles.BeautifulQuickSelectButtonStyle.TimeType) -> Color {
-        switch timeType {
-        case .work, .longBreak, .focus45, .focus60, .custom:
-            return .white
-        case .shortBreak, .break10, .break20:
-            return Color(red: 0.2, green: 0.4, blue: 0.3)
-        }
-    }
-}
+// Note: Configuration and theme colors are now handled by AppConfiguration.shared
 
 // MARK: - Preview
 #Preview {
