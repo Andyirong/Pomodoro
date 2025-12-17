@@ -1,0 +1,36 @@
+{
+  "last_updated": "2025-12-17",
+  "document_counters": {
+    "PD": {
+      "last_number": 3,
+      "next_fr": 16,
+      "next_id": 1
+    },
+    "TD": {
+      "last_number": 0,
+      "next_tr": 1,
+      "next_id": 1
+    },
+    "NFR": {
+      "last_number": 15,
+      "next_id": 16
+    },
+    "UI": {
+      "last_number": 0,
+      "next_id": 1
+    },
+    "QA": {
+      "last_number": 0,
+      "next_id": 1
+    },
+    "ARCH": {
+      "last_number": 0,
+      "next_id": 1
+    }
+  },
+  "document_mapping": {
+    "PD-001": "番茄闹钟App需求文档",
+    "PD-002": "美好快速选择按钮功能需求",
+    "PD-003": "快速选择弹窗与交互优化需求"
+  }
+}

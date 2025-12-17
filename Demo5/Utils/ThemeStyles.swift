@@ -148,6 +148,11 @@ struct ThemeStyles {
             case work  // 工作25分钟
             case shortBreak  // 短休息5分钟
             case longBreak  // 长休息15分钟
+            case focus45  // 45分钟专注
+            case focus60  // 60分钟专注
+            case break10  // 10分钟休息
+            case break20  // 20分钟休息
+            case custom  // 自定义
         }
 
         init(isSelected: Bool = false, isEnabled: Bool = true, timeType: TimeType = .work) {
@@ -223,6 +228,16 @@ struct ThemeStyles {
                 return Color.themeBreakMint  // 休息薄荷绿
             case .longBreak:
                 return Color.themeLongBreakPurple  // 长休息淡紫
+            case .focus45:
+                return Color.themeFocusDeepPink  // 45分钟专注深粉色
+            case .focus60:
+                return Color.themeFocusDeepPink  // 60分钟专注深粉色
+            case .break10:
+                return Color.themeBreakLightMint  // 10分钟休息浅薄荷绿
+            case .break20:
+                return Color.themeBreakLightMint  // 20分钟休息浅薄荷绿
+            case .custom:
+                return Color.themeCustomPurple  // 自定义时间紫色
             }
         }
     }

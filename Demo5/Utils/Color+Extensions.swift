@@ -28,6 +28,11 @@ extension Color {
     static let themeBreakMint = Color(red: 0.82, green: 0.89, blue: 0.86) // 休息薄荷绿
     static let themeLongBreakPurple = Color(red: 0.88, green: 0.83, blue: 0.90) // 长休息淡紫
 
+    // MARK: - 扩展主题色调（新的时间类型）
+    static let themeFocusDeepPink = Color(red: 0.85, green: 0.62, blue: 0.68) // 深专注色（更深一点的粉色）
+    static let themeBreakLightMint = Color(red: 0.88, green: 0.94, blue: 0.91) // 浅休息色（更浅的薄荷绿）
+    static let themeCustomPurple = Color(red: 0.82, green: 0.75, blue: 0.88) // 自定义时间色（独特的紫色）
+
     // MARK: - 渐变色
     static let pinkGradient = LinearGradient(
         colors: [themeLightPink, themePink],

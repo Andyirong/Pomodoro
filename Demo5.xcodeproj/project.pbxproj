@@ -7,7 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		E73971212EF291FB009BDE1B /* QuickTimePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = E73971202EF291FB009BDE1B /* QuickTimePicker.swift */; };
+		E73971262EF2B637009BDE1B /* CustomTimeInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = E73971222EF2B637009BDE1B /* CustomTimeInput.swift */; };
+		E73971272EF2B637009BDE1B /* TimePickerModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = E73971232EF2B637009BDE1B /* TimePickerModal.swift */; };
+		E73971282EF2B637009BDE1B /* QuickSelectButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = E73971242EF2B637009BDE1B /* QuickSelectButton.swift */; };
 		E747C8372EF26C4F002D93A1 /* StatsDAO.swift in Sources */ = {isa = PBXBuildFile; fileRef = E747C8242EF26C4E002D93A1 /* StatsDAO.swift */; };
 		E747C8382EF26C4F002D93A1 /* TaskDAO.swift in Sources */ = {isa = PBXBuildFile; fileRef = E747C8252EF26C4E002D93A1 /* TaskDAO.swift */; };
 		E747C8392EF26C4F002D93A1 /* TimerDAO.swift in Sources */ = {isa = PBXBuildFile; fileRef = E747C8262EF26C4E002D93A1 /* TimerDAO.swift */; };
@@ -29,7 +31,9 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		E73971202EF291FB009BDE1B /* QuickTimePicker.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = QuickTimePicker.swift; sourceTree = "<group>"; };
+		E73971222EF2B637009BDE1B /* CustomTimeInput.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CustomTimeInput.swift; sourceTree = "<group>"; };
+		E73971232EF2B637009BDE1B /* TimePickerModal.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TimePickerModal.swift; sourceTree = "<group>"; };
+		E73971242EF2B637009BDE1B /* QuickSelectButton.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = QuickSelectButton.swift; sourceTree = "<group>"; };
 		E747C8242EF26C4E002D93A1 /* StatsDAO.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = StatsDAO.swift; sourceTree = "<group>"; };
 		E747C8252EF26C4E002D93A1 /* TaskDAO.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TaskDAO.swift; sourceTree = "<group>"; };
 		E747C8262EF26C4E002D93A1 /* TimerDAO.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TimerDAO.swift; sourceTree = "<group>"; };
@@ -119,7 +123,9 @@
 		E747C8352EF26C4E002D93A1 /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				E73971202EF291FB009BDE1B /* QuickTimePicker.swift */,
+				E73971222EF2B637009BDE1B /* CustomTimeInput.swift */,
+				E73971242EF2B637009BDE1B /* QuickSelectButton.swift */,
+				E73971232EF2B637009BDE1B /* TimePickerModal.swift */,
 				E747C8362EF26C4E002D93A1 /* TimerView.swift */,
 			);
 			path = Views;
@@ -246,16 +252,18 @@
 				E747C8432EF26C4F002D93A1 /* TimerView.swift in Sources */,
 				E747C83D2EF26C4F002D93A1 /* TimerSettings.swift in Sources */,
 				E747C8422EF26C4F002D93A1 /* TaskViewModel.swift in Sources */,
+				E73971282EF2B637009BDE1B /* QuickSelectButton.swift in Sources */,
 				E747C8392EF26C4F002D93A1 /* TimerDAO.swift in Sources */,
 				E747C83E2EF26C4F002D93A1 /* Task.swift in Sources */,
 				E747C8412EF26C4F002D93A1 /* TimerViewModel.swift in Sources */,
+				E73971272EF2B637009BDE1B /* TimePickerModal.swift in Sources */,
 				E760B9B32EF24BD6006DB40F /* ContentView.swift in Sources */,
 				E747C83A2EF26C4F002D93A1 /* DatabaseManager.swift in Sources */,
 				E747C83F2EF26C4F002D93A1 /* ThemeStyles.swift in Sources */,
 				E747C8372EF26C4F002D93A1 /* StatsDAO.swift in Sources */,
-				E73971212EF291FB009BDE1B /* QuickTimePicker.swift in Sources */,
 				E760B9B12EF24BD6006DB40F /* Demo5App.swift in Sources */,
 				E747C83C2EF26C4F002D93A1 /* Achievement.swift in Sources */,
+				E73971262EF2B637009BDE1B /* CustomTimeInput.swift in Sources */,
 				E747C83B2EF26C4F002D93A1 /* UserStats.swift in Sources */,
 				E747C8382EF26C4F002D93A1 /* TaskDAO.swift in Sources */,
 				E747C8402EF26C4F002D93A1 /* Color+Extensions.swift in Sources */,
