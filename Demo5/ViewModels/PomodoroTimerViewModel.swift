@@ -90,11 +90,13 @@ class PomodoroTimerViewModel: ObservableObject {
         let totalSeconds = selectedMinutes * 60
 
         // 保存当前设置到数据库
-        Task { [databaseService, timeType, selectedMinutes] in
+        Task { [weak self] in
+            guard let self = self else { return }
+
             do {
-                try await databaseService.saveTimerSetting(
-                    minutes: selectedMinutes,
-                    timeType: timeType.rawValue
+                try await self.databaseService.saveTimerSetting(
+                    minutes: self.selectedMinutes,
+                    timeType: self.timeType.rawValue
                 )
             } catch {
                 print("保存计时器设置失败: \(error)")
@@ -203,9 +205,11 @@ class PomodoroTimerViewModel: ObservableObject {
     }
 
     private func loadUserSettings() {
-        Task { [databaseService] in
+        Task { [weak self] in
+            guard let self = self else { return }
+
             do {
-                let settings = try await databaseService.getDefaultTimerSettings()
+                let settings = try await self.databaseService.getDefaultTimerSettings()
                 await MainActor.run {
                     self.selectedMinutes = settings.minutes
                     if let savedType = ThemeStyles.BeautifulQuickSelectButtonStyle.TimeType(rawValue: settings.timeType) {
@@ -227,18 +231,20 @@ class PomodoroTimerViewModel: ObservableObject {
         guard let userInfo = notification.userInfo,
               let totalTime = userInfo["totalTime"] as? Int else { return }
 
-        Task { [databaseService, notificationService, timeType] in
+        Task { [weak self] in
+            guard let self = self else { return }
+
             do {
                 let minutes = totalTime / 60
-                try await databaseService.saveCompletedTimer(
+                try await self.databaseService.saveCompletedTimer(
                     minutes: minutes,
-                    timeType: timeType.rawValue,
+                    timeType: self.timeType.rawValue,
                     completedAt: Date()
                 )
 
                 // 播放完成通知
-                await notificationService.playCompletionSound()
-                notificationService.provideNotificationFeedback(.success)
+                await self.notificationService.playCompletionSound()
+                self.notificationService.provideNotificationFeedback(.success)
 
             } catch {
                 print("保存完成的计时器记录失败: \(error)")
