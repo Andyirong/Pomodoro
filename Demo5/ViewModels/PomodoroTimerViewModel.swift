@@ -261,32 +261,26 @@ protocol NotificationServiceProtocol {
 // MARK: - Default Service Implementations
 class DefaultDatabaseService: DatabaseServiceProtocol {
     func saveTimerSetting(minutes: Int, timeType: String) async throws {
-        // 实现数据库保存逻辑
-        DatabaseManager.shared.setUserSetting(key: "last_selected_minutes", value: "\(minutes)")
-        DatabaseManager.shared.setUserSetting(key: "last_selected_type", value: timeType)
+        // 暂时使用UserDefaults保存，避免SQLite依赖问题
+        UserDefaults.standard.set(minutes, forKey: "last_selected_minutes")
+        UserDefaults.standard.set(timeType, forKey: "last_selected_type")
     }
 
     func getDefaultTimerSettings() async throws -> (minutes: Int, timeType: String) {
-        let minutes = DatabaseManager.shared.getUserSetting(key: "default_minutes", defaultValue: 25)
-        let timeType = DatabaseManager.shared.getUserSetting(key: "default_time_type", defaultValue: "work")
-        return (minutes: Int(minutes) ?? 25, timeType: timeType)
+        let minutes = UserDefaults.standard.integer(forKey: "default_minutes")
+        let timeType = UserDefaults.standard.string(forKey: "default_time_type") ?? "work"
+        return (minutes: minutes > 0 ? minutes : 25, timeType: timeType)
     }
 
     func saveCompletedTimer(minutes: Int, timeType: String, completedAt: Date) async throws {
-        // 保存完成的计时器记录到数据库
-        let timerDAO = try TimerDAO()
-        let settings = TimerSettings(minutes: minutes, seconds: 0, note: "Completed Pomodoro")
-        try timerDAO.saveOrUpdateTimerSettings(settings)
+        // 暂时使用UserDefaults保存统计信息
+        let completedCount = UserDefaults.standard.integer(forKey: "completed_tomatoes") + 1
+        UserDefaults.standard.set(completedCount, forKey: "completed_tomatoes")
 
-        // 更新统计数据
-        let statsDAO = try StatsDAO()
-        let todayStats = statsDAO.getTodayStats()
-        try statsDAO.saveDailyStats(
-            date: completedAt,
-            totalMinutes: todayStats.totalMinutes + minutes,
-            completedTomatoes: todayStats.completedTomatoes + 1,
-            tasksDone: todayStats.tasksDone
-        )
+        let totalMinutes = UserDefaults.standard.integer(forKey: "total_minutes") + minutes
+        UserDefaults.standard.set(totalMinutes, forKey: "total_minutes")
+
+        print("✅ 保存完成的计时器记录: \(minutes)分钟")
     }
 }
 

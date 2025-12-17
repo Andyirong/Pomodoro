@@ -54,17 +54,15 @@ struct Demo5App: App {
     }
 
     private func initializeDatabase() {
-        do {
-            let success = DatabaseManager.shared.openDatabase()
-            if success {
-                DefaultLogger.shared.info("Database connection established", category: .database)
-            } else {
-                throw AppError.databaseConnectionFailed
-            }
-        } catch {
-            ErrorHandler.handle(error,
-                              title: "数据库初始化失败",
-                              showAlert: true)
+        // 暂时跳过数据库初始化，避免SQLite依赖问题
+        DefaultLogger.shared.info("Database initialization skipped (using UserDefaults)", category: .database)
+
+        // 可以在这里设置一些默认的用户设置
+        if UserDefaults.standard.object(forKey: "default_minutes") == nil {
+            UserDefaults.standard.set(25, forKey: "default_minutes")
+        }
+        if UserDefaults.standard.object(forKey: "default_time_type") == nil {
+            UserDefaults.standard.set("work", forKey: "default_time_type")
         }
     }
 
