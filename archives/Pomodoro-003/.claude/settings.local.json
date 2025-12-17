@@ -4,8 +4,7 @@
       "Bash(node archive-current-branch.cjs:*)",
       "Bash(git symbolic-ref:*)",
       "Bash(xcrun simctl install:*)",
-      "Bash(xcrun simctl launch:*)",
-      "Bash(xcodebuild:*)"
+      "Bash(xcrun simctl launch:*)"
     ]
   }
 }
