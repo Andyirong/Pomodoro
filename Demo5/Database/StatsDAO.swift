@@ -6,70 +6,62 @@
 //
 
 import Foundation
-import SQLite3
+import SQLite
 
 class StatsDAO {
-    private let db: OpaquePointer?
+    private let db: Connection
 
-    init() {
-        db = DatabaseManager.shared.getDatabase()
+    // 表和列定义
+    private let statistics = Table("statistics")
+    private let dateColumn = Expression<String>("date")
+    private let totalMinutes = Expression<Int>("total_minutes")
+    private let completedTomatoes = Expression<Int>("completed_tomatoes")
+    private let tasksDone = Expression<Int>("tasks_done")
+
+    init() throws {
+        guard let database = DatabaseManager.shared.getDatabase() else {
+            throw DatabaseError.notConnected
+        }
+        db = database
     }
 
     // 保存每日统计数据
-    func saveDailyStats(date: Date, totalMinutes: Int, completedTomatoes: Int, tasksDone: Int) -> Bool {
-        var statement: OpaquePointer?
-        let sql = """
-            INSERT OR REPLACE INTO statistics (date, total_minutes, completed_tomatoes, tasks_done)
-            VALUES (?, ?, ?, ?);
-        """
-
-        if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "yyyy-MM-dd"
-            let dateString = formatter.string(from: date)
-
-            sqlite3_bind_text(statement, 1, dateString, -1, nil)
-            sqlite3_bind_int(statement, 2, Int32(totalMinutes))
-            sqlite3_bind_int(statement, 3, Int32(completedTomatoes))
-            sqlite3_bind_int(statement, 4, Int32(tasksDone))
-
-            let result = sqlite3_step(statement) == SQLITE_DONE
-            sqlite3_finalize(statement)
-            return result
-        }
-
-        sqlite3_finalize(statement)
-        return false
-    }
-
-    // 获取指定日期的统计数据
-    func getStatsForDate(_ date: Date) -> (totalMinutes: Int, completedTomatoes: Int, tasksDone: Int)? {
-        var statement: OpaquePointer?
-        let sql = "SELECT * FROM statistics WHERE date = ?;"
-
+    func saveDailyStats(date: Date, totalMinutes: Int, completedTomatoes: Int, tasksDone: Int) throws {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         let dateString = formatter.string(from: date)
 
-        if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
-            sqlite3_bind_text(statement, 1, dateString, -1, nil)
+        let insertOrReplace = statistics.insert(or: .replace,
+            dateColumn <- dateString,
+            self.totalMinutes <- totalMinutes,
+            self.completedTomatoes <- completedTomatoes,
+            self.tasksDone <- tasksDone
+        )
 
-            if sqlite3_step(statement) == SQLITE_ROW {
-                let totalMinutes = Int(sqlite3_column_int(statement, 1))
-                let completedTomatoes = Int(sqlite3_column_int(statement, 2))
-                let tasksDone = Int(sqlite3_column_int(statement, 3))
+        try db.run(insertOrReplace)
+    }
 
-                sqlite3_finalize(statement)
+    // 获取指定日期的统计数据
+    func getStatsForDate(_ date: Date) -> (totalMinutes: Int, completedTomatoes: Int, tasksDone: Int)? {
+        do {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd"
+            let dateString = formatter.string(from: date)
+
+            let query = statistics.filter(dateColumn == dateString)
+
+            for row in try db.prepare(query) {
                 return (
-                    totalMinutes: Int(totalMinutes),
-                    completedTomatoes: Int(completedTomatoes),
-                    tasksDone: Int(tasksDone)
+                    totalMinutes: row[totalMinutes],
+                    completedTomatoes: row[completedTomatoes],
+                    tasksDone: row[tasksDone]
                 )
             }
+            return nil
+        } catch {
+            print("获取指定日期统计数据失败: \(error)")
+            return nil
         }
-
-        sqlite3_finalize(statement)
-        return nil
     }
 
     // 获取今日统计数据
@@ -101,88 +93,71 @@ class StatsDAO {
 
     // 获取日期范围内的统计数据
     private func getStatsForDateRange(from startDate: Date, to endDate: Date) -> (totalMinutes: Int, completedTomatoes: Int, tasksDone: Int) {
-        var statement: OpaquePointer?
-        let sql = """
-            SELECT SUM(total_minutes), SUM(completed_tomatoes), SUM(tasks_done)
-            FROM statistics
-            WHERE date >= ? AND date <= ?;
-        """
+        do {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd"
+            let startDateString = formatter.string(from: startDate)
+            let endDateString = formatter.string(from: endDate)
 
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        let startDateString = formatter.string(from: startDate)
-        let endDateString = formatter.string(from: endDate)
+            let query = statistics
+                .filter(dateColumn >= startDateString && dateColumn <= endDateString)
 
-        var totalMinutes = 0
-        var completedTomatoes = 0
-        var tasksDone = 0
+            let totalMinutes = try db.scalar(query.select(totalMinutes.sum)) ?? 0
+            let completedTomatoes = try db.scalar(query.select(completedTomatoes.sum)) ?? 0
+            let tasksDone = try db.scalar(query.select(tasksDone.sum)) ?? 0
 
-        if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
-            sqlite3_bind_text(statement, 1, startDateString, -1, nil)
-            sqlite3_bind_text(statement, 2, endDateString, -1, nil)
-
-            if sqlite3_step(statement) == SQLITE_ROW {
-                totalMinutes = Int(sqlite3_column_int(statement, 0))
-                completedTomatoes = Int(sqlite3_column_int(statement, 1))
-                tasksDone = Int(sqlite3_column_int(statement, 2))
-            }
+            return (totalMinutes: totalMinutes, completedTomatoes: completedTomatoes, tasksDone: tasksDone)
+        } catch {
+            print("获取日期范围内统计数据失败: \(error)")
+            return (totalMinutes: 0, completedTomatoes: 0, tasksDone: 0)
         }
-
-        sqlite3_finalize(statement)
-        return (totalMinutes: totalMinutes, completedTomatoes: completedTomatoes, tasksDone: tasksDone)
     }
 
     // 获取最近7天的每日统计数据
-    func getLast7DaysStats() -> [(date: String, totalMinutes: Int, completedTomatoes: Int, tasksDone: Int)] {
-        var stats: [(String, Int, Int, Int)] = []
-        var statement: OpaquePointer?
-        let sql = """
-            SELECT date, total_minutes, completed_tomatoes, tasks_done
-            FROM statistics
-            WHERE date >= DATE('now', '-7 days')
-            ORDER BY date ASC;
-        """
+    func getLast7DaysStats() -> [(date: Date, totalMinutes: Int, completedTomatoes: Int, tasksDone: Int)] {
+        do {
+            let calendar = Calendar.current
+            let sevenDaysAgo = calendar.date(byAdding: .day, value: -7, to: Date()) ?? Date()
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd"
+            let sevenDaysAgoString = formatter.string(from: sevenDaysAgo)
 
-        if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
-            while sqlite3_step(statement) == SQLITE_ROW {
-                let datePtr = sqlite3_column_text(statement, 0)
-                let date = datePtr != nil ? String(cString: datePtr!) : ""
+            let query = statistics
+                .filter(dateColumn >= sevenDaysAgoString)
+                .order(dateColumn.asc)
 
-                let totalMinutes = Int(sqlite3_column_int(statement, 1))
-                let completedTomatoes = Int(sqlite3_column_int(statement, 2))
-                let tasksDone = Int(sqlite3_column_int(statement, 3))
+            let formatter2 = DateFormatter()
+            formatter2.dateFormat = "yyyy-MM-dd"
 
-                stats.append((
-                    date: date,
-                    totalMinutes: Int(totalMinutes),
-                    completedTomatoes: Int(completedTomatoes),
-                    tasksDone: Int(tasksDone)
-                ))
+            return try db.prepare(query).compactMap { row in
+                let dateString = row[dateColumn]
+                if let date = formatter2.date(from: dateString) {
+                    return (
+                        date: date,
+                        totalMinutes: row[totalMinutes],
+                        completedTomatoes: row[completedTomatoes],
+                        tasksDone: row[tasksDone]
+                    )
+                }
+                return nil
             }
+        } catch {
+            print("获取最近7天统计数据失败: \(error)")
+            return []
         }
-
-        sqlite3_finalize(statement)
-        return stats
     }
 
     // 获取全部时间统计
     func getAllTimeStats() -> (totalMinutes: Int, completedTomatoes: Int, tasksDone: Int) {
-        var statement: OpaquePointer?
-        let sql = "SELECT SUM(total_minutes), SUM(completed_tomatoes), SUM(tasks_done) FROM statistics;"
+        do {
+            let totalMinutes = try db.scalar(statistics.select(totalMinutes.sum)) ?? 0
+            let completedTomatoes = try db.scalar(statistics.select(completedTomatoes.sum)) ?? 0
+            let tasksDone = try db.scalar(statistics.select(tasksDone.sum)) ?? 0
 
-        var totalMinutes = 0
-        var completedTomatoes = 0
-        var tasksDone = 0
-
-        if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
-            if sqlite3_step(statement) == SQLITE_ROW {
-                totalMinutes = Int(sqlite3_column_int(statement, 0))
-                completedTomatoes = Int(sqlite3_column_int(statement, 1))
-                tasksDone = Int(sqlite3_column_int(statement, 2))
-            }
+            return (totalMinutes: totalMinutes, completedTomatoes: completedTomatoes, tasksDone: tasksDone)
+        } catch {
+            print("获取全部时间统计失败: \(error)")
+            return (totalMinutes: 0, completedTomatoes: 0, tasksDone: 0)
         }
-
-        sqlite3_finalize(statement)
-        return (totalMinutes: totalMinutes, completedTomatoes: completedTomatoes, tasksDone: tasksDone)
     }
 }

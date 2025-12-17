@@ -6,112 +6,81 @@
 //
 
 import Foundation
-import SQLite3
+import SQLite
 
 class TimerDAO {
-    private let db: OpaquePointer?
+    private let db: Connection
 
-    init() {
-        db = DatabaseManager.shared.getDatabase()
+    // 表和列定义
+    private let timerHistory = Table("timer_history")
+    private let id = Expression<Int64>("id")
+    private let minutes = Expression<Int>("minutes")
+    private let seconds = Expression<Int>("seconds")
+    private let note = Expression<String>("note")
+    private let createdAt = Expression<Date>("created_at")
+    private let usageCount = Expression<Int>("usage_count")
+
+    init() throws {
+        guard let database = DatabaseManager.shared.getDatabase() else {
+            throw DatabaseError.notConnected
+        }
+        db = database
     }
 
     // 插入新的倒计时记录
-    func insertTimerSettings(_ settings: TimerSettings) -> Bool {
-        var statement: OpaquePointer?
-        let sql = """
-            INSERT INTO timer_history (minutes, seconds, note, created_at, usage_count)
-            VALUES (?, ?, ?, ?, ?);
-        """
-
-        if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
-            sqlite3_bind_int(statement, 1, Int32(settings.minutes))
-            sqlite3_bind_int(statement, 2, Int32(settings.seconds))
-            sqlite3_bind_text(statement, 3, settings.note, -1, nil)
-
-            let formatter = DateFormatter()
-            formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-            let dateString = formatter.string(from: settings.createdAt)
-            sqlite3_bind_text(statement, 4, dateString, -1, nil)
-
-            sqlite3_bind_int(statement, 5, Int32(settings.usageCount))
-
-            if sqlite3_step(statement) == SQLITE_DONE {
-                sqlite3_finalize(statement)
-                return true
-            }
-        }
-
-        sqlite3_finalize(statement)
-        return false
+    func insertTimerSettings(_ settings: TimerSettings) throws -> Int64 {
+        let insert = timerHistory.insert(
+            minutes <- settings.minutes,
+            seconds <- settings.seconds,
+            note <- settings.note,
+            createdAt <- settings.createdAt,
+            usageCount <- settings.usageCount
+        )
+        return try db.run(insert)
     }
 
     // 获取最近的倒计时记录（最多10条）
     func getRecentTimerSettings(limit: Int = 10) -> [TimerSettings] {
-        var settings: [TimerSettings] = []
-        var statement: OpaquePointer?
-        let sql = "SELECT * FROM timer_history ORDER BY created_at DESC LIMIT ?;"
+        do {
+            let query = timerHistory
+                .order(createdAt.desc)
+                .limit(limit)
 
-        if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
-            sqlite3_bind_int(statement, 1, Int32(limit))
-
-            while sqlite3_step(statement) == SQLITE_ROW {
-                let id = Int(sqlite3_column_int(statement, 0))
-                let minutes = Int(sqlite3_column_int(statement, 1))
-                let seconds = Int(sqlite3_column_int(statement, 2))
-
-                let notePtr = sqlite3_column_text(statement, 3)
-                let note = notePtr != nil ? String(cString: notePtr!) : ""
-
-                let createdAtPtr = sqlite3_column_text(statement, 4)
-                let createdAtString = createdAtPtr != nil ? String(cString: createdAtPtr!) : ""
-
-                let usageCount = Int(sqlite3_column_int(statement, 5))
-
-                let formatter = DateFormatter()
-                formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-                let createdAt = formatter.date(from: createdAtString) ?? Date()
-
-                var setting = TimerSettings(minutes: Int(minutes), seconds: Int(seconds), note: note)
-                setting = TimerSettings(
-                    minutes: Int(minutes),
-                    seconds: Int(seconds),
-                    note: note
+            var settings: [TimerSettings] = []
+            for row in try db.prepare(query) {
+                let setting = TimerSettings(
+                    dbId: row[id],
+                    minutes: row[minutes],
+                    seconds: row[seconds],
+                    note: row[note],
+                    createdAt: row[createdAt],
+                    usageCount: row[usageCount]
                 )
-
                 settings.append(setting)
             }
+            return settings
+        } catch {
+            print("获取最近记录失败: \(error)")
+            return []
         }
-
-        sqlite3_finalize(statement)
-        return settings
     }
 
     // 检查是否存在相同设置的记录，如果存在则更新使用次数
     func updateUsageCount(minutes: Int, seconds: Int) -> Bool {
-        var statement: OpaquePointer?
-        let sql = """
-            UPDATE timer_history
-            SET usage_count = usage_count + 1, created_at = ?
-            WHERE minutes = ? AND seconds = ?
-            ORDER BY created_at DESC
-            LIMIT 1;
-        """
+        do {
+            let update = timerHistory
+                .filter(self.minutes == minutes && self.seconds == seconds)
+                .update(
+                    usageCount += 1,
+                    createdAt <- Date()
+                )
 
-        if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-            let dateString = formatter.string(from: Date())
-            sqlite3_bind_text(statement, 1, dateString, -1, nil)
-            sqlite3_bind_int(statement, 2, Int32(minutes))
-            sqlite3_bind_int(statement, 3, Int32(seconds))
-
-            let result = sqlite3_step(statement) == SQLITE_DONE
-            sqlite3_finalize(statement)
-            return result
+            let changes = try db.run(update)
+            return changes > 0
+        } catch {
+            print("更新使用次数失败: \(error)")
+            return false
         }
-
-        sqlite3_finalize(statement)
-        return false
     }
 
     // 保存或更新倒计时设置
@@ -122,57 +91,50 @@ class TimerDAO {
         }
 
         // 如果没有找到相同设置，则插入新记录
-        return insertTimerSettings(settings)
+        do {
+            _ = try insertTimerSettings(settings)
+            return true
+        } catch {
+            print("插入记录失败: \(error)")
+            return false
+        }
     }
 
     // 获取总完成数
     func getTotalCompletedCount() -> Int {
-        var statement: OpaquePointer?
-        let sql = "SELECT COUNT(*) FROM timer_history;"
-        var count = 0
-
-        if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
-            if sqlite3_step(statement) == SQLITE_ROW {
-                count = Int(sqlite3_column_int(statement, 0))
-            }
+        do {
+            return try db.scalar(timerHistory.count)
+        } catch {
+            print("获取总完成数失败: \(error)")
+            return 0
         }
-
-        sqlite3_finalize(statement)
-        return count
     }
 
     // 获取今日完成数
     func getTodayCompletedCount() -> Int {
-        var statement: OpaquePointer?
-        let sql = """
-            SELECT COUNT(*) FROM timer_history
-            WHERE DATE(created_at) = DATE('now');
-        """
-        var count = 0
+        do {
+            let calendar = Calendar.current
+            let startOfDay = calendar.startOfDay(for: Date())
+            let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
 
-        if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
-            if sqlite3_step(statement) == SQLITE_ROW {
-                count = Int(sqlite3_column_int(statement, 0))
-            }
+            let query = timerHistory.filter(
+                createdAt >= startOfDay && createdAt < endOfDay
+            )
+            return try db.scalar(query.count)
+        } catch {
+            print("获取今日完成数失败: \(error)")
+            return 0
         }
-
-        sqlite3_finalize(statement)
-        return count
     }
 
     // 获取总专注分钟数
     func getTotalFocusMinutes() -> Int {
-        var statement: OpaquePointer?
-        let sql = "SELECT SUM(minutes) FROM timer_history;"
-        var totalMinutes = 0
-
-        if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
-            if sqlite3_step(statement) == SQLITE_ROW {
-                totalMinutes = Int(sqlite3_column_int(statement, 0))
-            }
+        do {
+            return try db.scalar(timerHistory.select(minutes.sum)) ?? 0
+        } catch {
+            print("获取总专注分钟数失败: \(error)")
+            return 0
         }
-
-        sqlite3_finalize(statement)
-        return totalMinutes
     }
 }
+

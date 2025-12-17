@@ -21,11 +21,19 @@ class TimerViewModel: ObservableObject {
     @Published var currentNote: String = ""
 
     private var timer: Timer?
-    private var timerDAO = TimerDAO()
-    private var statsDAO = StatsDAO()
+    private var timerDAO: TimerDAO?
+    private var statsDAO: StatsDAO?
     private let totalSecondsSubject = CurrentValueSubject<Int, Never>(0)
 
     init() {
+        // 初始化 DAO
+        do {
+            timerDAO = try TimerDAO()
+            statsDAO = try StatsDAO()
+        } catch {
+            print("初始化数据库失败: \(error)")
+        }
+
         loadRecentSettings()
         loadUserSettings()
     }
@@ -106,16 +114,20 @@ class TimerViewModel: ObservableObject {
 
         // 保存到历史记录
         let settings = TimerSettings(minutes: initialMinutes, seconds: initialSeconds, note: currentNote)
-        timerDAO.saveOrUpdateTimerSettings(settings)
+        timerDAO?.saveOrUpdateTimerSettings(settings)
 
         // 更新统计数据
-        let todayStats = statsDAO.getTodayStats()
-        statsDAO.saveDailyStats(
-            date: Date(),
-            totalMinutes: todayStats.totalMinutes + initialMinutes,
-            completedTomatoes: todayStats.completedTomatoes + 1,
-            tasksDone: todayStats.tasksDone
-        )
+        let todayStats = statsDAO?.getTodayStats() ?? (totalMinutes: 0, completedTomatoes: 0, tasksDone: 0)
+        do {
+            try statsDAO?.saveDailyStats(
+                date: Date(),
+                totalMinutes: todayStats.totalMinutes + initialMinutes,
+                completedTomatoes: todayStats.completedTomatoes + 1,
+                tasksDone: todayStats.tasksDone
+            )
+        } catch {
+            print("保存统计数据失败: \(error)")
+        }
 
         // 触发通知
         NotificationCenter.default.post(name: .timerCompleted, object: nil)
@@ -167,7 +179,7 @@ class TimerViewModel: ObservableObject {
     // MARK: - 数据管理
 
     private func loadRecentSettings() {
-        recentSettings = timerDAO.getRecentTimerSettings(limit: 10)
+        recentSettings = timerDAO?.getRecentTimerSettings(limit: 10) ?? []
     }
 
     private func loadUserSettings() {
@@ -182,13 +194,14 @@ class TimerViewModel: ObservableObject {
     }
 
     private func getUserSetting(key: String, defaultValue: Int) -> Int {
-        // 这里应该从数据库读取，暂时返回默认值
-        return defaultValue
+        // 从 DatabaseManager 读取用户设置
+        let value = DatabaseManager.shared.getUserSetting(key: key, defaultValue: defaultValue)
+        return Int(value) ?? defaultValue
     }
 
     func saveCurrentSetting() {
         let settings = TimerSettings(minutes: initialMinutes, seconds: initialSeconds, note: currentNote)
-        timerDAO.saveOrUpdateTimerSettings(settings)
+        timerDAO?.saveOrUpdateTimerSettings(settings)
         loadRecentSettings()
     }
 

@@ -8,7 +8,8 @@
 import Foundation
 
 struct Task: Identifiable, Codable {
-    let id = UUID()
+    let id = UUID()  // UI 使用的 ID
+    var dbId: Int64?  // 数据库存储的 ID
     var title: String
     var category: TaskCategory
     var priority: TaskPriority
@@ -18,12 +19,25 @@ struct Task: Identifiable, Codable {
     var completedAt: Date?
 
     init(title: String, category: TaskCategory = .work, priority: TaskPriority = .medium, deadline: Date? = nil) {
+        self.dbId = nil
         self.title = title
         self.category = category
         self.priority = priority
         self.deadline = deadline
         self.completed = false
         self.createdAt = Date()
+    }
+
+    // 数据库专用的初始化器
+    init(dbId: Int64?, title: String, category: TaskCategory, priority: TaskPriority, deadline: Date?, completed: Bool, createdAt: Date, completedAt: Date? = nil) {
+        self.dbId = dbId
+        self.title = title
+        self.category = category
+        self.priority = priority
+        self.deadline = deadline
+        self.completed = completed
+        self.createdAt = createdAt
+        self.completedAt = completedAt
     }
 
     // 标记为完成

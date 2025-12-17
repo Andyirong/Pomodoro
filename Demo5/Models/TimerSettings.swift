@@ -8,7 +8,8 @@
 import Foundation
 
 struct TimerSettings: Identifiable, Codable {
-    let id = UUID()
+    let id = UUID()  // UI 使用的 ID
+    var dbId: Int64?  // 数据库存储的 ID
     var minutes: Int
     var seconds: Int
     var note: String
@@ -16,11 +17,22 @@ struct TimerSettings: Identifiable, Codable {
     var usageCount: Int
 
     init(minutes: Int = 25, seconds: Int = 0, note: String = "") {
+        self.dbId = nil
         self.minutes = minutes
         self.seconds = seconds
         self.note = note
         self.createdAt = Date()
         self.usageCount = 1
+    }
+
+    // 数据库专用的初始化器
+    init(dbId: Int64?, minutes: Int, seconds: Int, note: String, createdAt: Date, usageCount: Int) {
+        self.dbId = dbId
+        self.minutes = minutes
+        self.seconds = seconds
+        self.note = note
+        self.createdAt = createdAt
+        self.usageCount = usageCount
     }
 
     // 计算总秒数

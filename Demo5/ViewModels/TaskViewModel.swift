@@ -16,29 +16,43 @@ class TaskViewModel: ObservableObject {
     @Published var showCompletedOnly: Bool = false
     @Published var searchText: String = ""
 
-    private var taskDAO = TaskDAO()
-    private var statsDAO = StatsDAO()
+    private var taskDAO: TaskDAO?
+    private var statsDAO: StatsDAO?
 
     init() {
+        // 初始化 DAO
+        do {
+            taskDAO = try TaskDAO()
+            statsDAO = try StatsDAO()
+        } catch {
+            print("初始化数据库失败: \(error)")
+        }
+
         loadTasks()
     }
 
     // MARK: - 任务管理
 
     func addTask(_ task: Task) {
-        if taskDAO.insertTask(task) {
+        do {
+            _ = try taskDAO?.insertTask(task)
             loadTasks()
+        } catch {
+            print("添加任务失败: \(error)")
         }
     }
 
     func updateTask(_ task: Task) {
-        if taskDAO.updateTask(task) {
+        let success = taskDAO?.updateTask(task) ?? false
+        if success {
             loadTasks()
         }
     }
 
     func deleteTask(_ task: Task) {
-        if taskDAO.deleteTask(id: task.id) {
+        guard let taskId = task.dbId else { return }
+        let success = taskDAO?.deleteTask(id: taskId) ?? false
+        if success {
             loadTasks()
         }
     }
@@ -54,13 +68,17 @@ class TaskViewModel: ObservableObject {
             updatedTask.markAsCompleted()
 
             // 更新统计数据
-            let todayStats = statsDAO.getTodayStats()
-            statsDAO.saveDailyStats(
-                date: Date(),
-                totalMinutes: todayStats.totalMinutes,
-                completedTomatoes: todayStats.completedTomatoes,
-                tasksDone: todayStats.tasksDone + 1
-            )
+            let todayStats = statsDAO?.getTodayStats() ?? (totalMinutes: 0, completedTomatoes: 0, tasksDone: 0)
+            do {
+                try statsDAO?.saveDailyStats(
+                    date: Date(),
+                    totalMinutes: todayStats.totalMinutes,
+                    completedTomatoes: todayStats.completedTomatoes,
+                    tasksDone: todayStats.tasksDone + 1
+                )
+            } catch {
+                print("保存统计数据失败: \(error)")
+            }
 
             // 触发通知
             NotificationCenter.default.post(name: .taskCompleted, object: updatedTask)
@@ -72,27 +90,27 @@ class TaskViewModel: ObservableObject {
     // MARK: - 数据加载
 
     func loadTasks() {
-        tasks = taskDAO.getAllTasks()
+        tasks = taskDAO?.getAllTasks() ?? []
         applyFilters()
     }
 
     func loadActiveTasks() {
-        tasks = taskDAO.getTasksByCompleted(false)
+        tasks = taskDAO?.getTasksByCompleted(false) ?? []
         applyFilters()
     }
 
     func loadCompletedTasks() {
-        tasks = taskDAO.getTasksByCompleted(true)
+        tasks = taskDAO?.getTasksByCompleted(true) ?? []
         applyFilters()
     }
 
     func loadTodayTasks() {
-        tasks = taskDAO.getTodayTasks()
+        tasks = taskDAO?.getTodayTasks() ?? []
         applyFilters()
     }
 
     func loadTasksByCategory(_ category: TaskCategory) {
-        tasks = taskDAO.getTasksByCategory(category)
+        tasks = taskDAO?.getTasksByCategory(category) ?? []
         applyFilters()
     }
 
@@ -154,7 +172,7 @@ class TaskViewModel: ObservableObject {
     // MARK: - 统计信息
 
     func getTaskStats() -> (total: Int, completed: Int, pending: Int) {
-        return taskDAO.getTaskStats()
+        return taskDAO?.getTaskStats() ?? (total: 0, completed: 0, pending: 0)
     }
 
     func getTasksByCategory() -> [TaskCategory: [Task]] {
@@ -211,7 +229,7 @@ class TaskViewModel: ObservableObject {
     }
 
     var todayTasksCount: Int {
-        return taskDAO.getTodayTasks().count
+        return taskDAO?.getTodayTasks().count ?? 0
     }
 
     var completionRate: Double {

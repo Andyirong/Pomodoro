@@ -6,213 +6,324 @@
 //
 
 import Foundation
-import SQLite3
+import SQLite
 
 class TaskDAO {
-    private let db: OpaquePointer?
+    private let db: Connection
 
-    init() {
-        db = DatabaseManager.shared.getDatabase()
+    // 表和列定义
+    private let tasks = Table("tasks")
+    private let id = Expression<Int64>("id")
+    private let title = Expression<String>("title")
+    private let category = Expression<String>("category")
+    private let priority = Expression<Int>("priority")
+    private let deadline = Expression<Date?>("deadline")
+    private let completed = Expression<Int>("completed")
+    private let createdAt = Expression<Date>("created_at")
+    private let completedAt = Expression<Date?>("completed_at")
+
+    init() throws {
+        guard let database = DatabaseManager.shared.getDatabase() else {
+            throw DatabaseError.notConnected
+        }
+        db = database
     }
 
     // 插入新任务
-    func insertTask(_ task: Task) -> Bool {
-        var statement: OpaquePointer?
-        let sql = """
-            INSERT INTO tasks (title, category, priority, deadline, completed, created_at)
-            VALUES (?, ?, ?, ?, ?, ?);
-        """
-
-        if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
-            sqlite3_bind_text(statement, 1, task.title, -1, nil)
-            sqlite3_bind_text(statement, 2, task.category.rawValue, -1, nil)
-            sqlite3_bind_int(statement, 3, Int32(task.priority.rawValue))
-
-            let formatter = DateFormatter()
-            formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-
-            if let deadline = task.deadline {
-                let deadlineString = formatter.string(from: deadline)
-                sqlite3_bind_text(statement, 4, deadlineString, -1, nil)
-            } else {
-                sqlite3_bind_null(statement, 4)
-            }
-
-            sqlite3_bind_int(statement, 5, task.completed ? 1 : 0)
-
-            let createdString = formatter.string(from: task.createdAt)
-            sqlite3_bind_text(statement, 6, createdString, -1, nil)
-
-            let result = sqlite3_step(statement) == SQLITE_DONE
-            sqlite3_finalize(statement)
-            return result
-        }
-
-        sqlite3_finalize(statement)
-        return false
+    func insertTask(_ task: Task) throws -> Int64 {
+        let insert = tasks.insert(
+            title <- task.title,
+            category <- task.category.rawValue,
+            priority <- task.priority.rawValue,
+            deadline <- task.deadline,
+            completed <- task.completed ? 1 : 0,
+            createdAt <- task.createdAt,
+            completedAt <- task.completedAt
+        )
+        return try db.run(insert)
     }
 
     // 获取所有任务
     func getAllTasks() -> [Task] {
-        return getTasksWithSQL("SELECT * FROM tasks ORDER BY created_at DESC;")
+        do {
+            let query = tasks.order(createdAt.desc)
+            return try db.prepare(query).map { row in
+                let categoryString = row[self.category]
+                let category = TaskCategory(rawValue: categoryString) ?? .other
+
+                let priorityValue = row[self.priority]
+                let priority = TaskPriority(rawValue: priorityValue) ?? .medium
+
+                let completedValue = row[self.completed]
+                return Task(
+                    dbId: row[self.id],
+                    title: row[self.title],
+                    category: category,
+                    priority: priority,
+                    deadline: row[self.deadline],
+                    completed: completedValue != 0,
+                    createdAt: row[self.createdAt],
+                    completedAt: row[self.completedAt]
+                )
+            }
+        } catch {
+            print("获取所有任务失败: \(error)")
+            return []
+        }
     }
 
     // 根据完成状态获取任务
-    func getTasksByCompleted(_ completed: Bool) -> [Task] {
-        let sql = "SELECT * FROM tasks WHERE completed = ? ORDER BY created_at DESC;"
-        return getTasksWithSQL(sql, bind: { statement in
-            sqlite3_bind_int(statement, 1, completed ? 1 : 0)
-        })
+    func getTasksByCompleted(_ isCompleted: Bool) -> [Task] {
+        do {
+            let query = tasks
+                .filter(self.completed == (isCompleted ? 1 : 0))
+                .order(createdAt.desc)
+
+            return try db.prepare(query).map { row in
+                let categoryString = row[self.category]
+                let category = TaskCategory(rawValue: categoryString) ?? .other
+
+                let priorityValue = row[self.priority]
+                let priority = TaskPriority(rawValue: priorityValue) ?? .medium
+
+                let completedValue = row[self.completed]
+                return Task(
+                    dbId: row[self.id],
+                    title: row[self.title],
+                    category: category,
+                    priority: priority,
+                    deadline: row[self.deadline],
+                    completed: completedValue != 0,
+                    createdAt: row[self.createdAt],
+                    completedAt: row[self.completedAt]
+                )
+            }
+        } catch {
+            print("根据完成状态获取任务失败: \(error)")
+            return []
+        }
     }
 
     // 根据分类获取任务
-    func getTasksByCategory(_ category: TaskCategory) -> [Task] {
-        let sql = "SELECT * FROM tasks WHERE category = ? ORDER BY created_at DESC;"
-        return getTasksWithSQL(sql, bind: { statement in
-            sqlite3_bind_text(statement, 1, category.rawValue, -1, nil)
-        })
+    func getTasksByCategory(_ taskCategory: TaskCategory) -> [Task] {
+        do {
+            let query = tasks
+                .filter(self.category == taskCategory.rawValue)
+                .order(createdAt.desc)
+
+            return try db.prepare(query).map { row in
+                let categoryString = row[self.category]
+                let category = TaskCategory(rawValue: categoryString) ?? .other
+
+                let priorityValue = row[self.priority]
+                let priority = TaskPriority(rawValue: priorityValue) ?? .medium
+
+                let completedValue = row[self.completed]
+                return Task(
+                    dbId: row[self.id],
+                    title: row[self.title],
+                    category: category,
+                    priority: priority,
+                    deadline: row[self.deadline],
+                    completed: completedValue != 0,
+                    createdAt: row[self.createdAt],
+                    completedAt: row[self.completedAt]
+                )
+            }
+        } catch {
+            print("根据分类获取任务失败: \(error)")
+            return []
+        }
     }
 
     // 获取今日到期的任务
     func getTodayTasks() -> [Task] {
-        let sql = """
-            SELECT * FROM tasks
-            WHERE DATE(deadline) = DATE('now')
-            ORDER BY priority DESC, created_at ASC;
-        """
-        return getTasksWithSQL(sql)
+        do {
+            let calendar = Calendar.current
+            let startOfDay = calendar.startOfDay(for: Date())
+            let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
+
+            let query = tasks
+                .filter(self.deadline >= startOfDay && self.deadline < endOfDay)
+                .order(self.priority.desc, self.createdAt.asc)
+
+            return try db.prepare(query).map { row in
+                let categoryString = row[self.category]
+                let category = TaskCategory(rawValue: categoryString) ?? .other
+
+                let priorityValue = row[self.priority]
+                let priority = TaskPriority(rawValue: priorityValue) ?? .medium
+
+                let completedValue = row[self.completed]
+                return Task(
+                    dbId: row[self.id],
+                    title: row[self.title],
+                    category: category,
+                    priority: priority,
+                    deadline: row[self.deadline],
+                    completed: completedValue != 0,
+                    createdAt: row[self.createdAt],
+                    completedAt: row[self.completedAt]
+                )
+            }
+        } catch {
+            print("获取今日到期任务失败: \(error)")
+            return []
+        }
     }
 
     // 更新任务
     func updateTask(_ task: Task) -> Bool {
-        var statement: OpaquePointer?
-        let sql = """
-            UPDATE tasks
-            SET title = ?, category = ?, priority = ?, deadline = ?, completed = ?
-            WHERE id = ?;
-        """
-
-        if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
-            sqlite3_bind_text(statement, 1, task.title, -1, nil)
-            sqlite3_bind_text(statement, 2, task.category.rawValue, -1, nil)
-            sqlite3_bind_int(statement, 3, Int32(task.priority.rawValue))
-
-            let formatter = DateFormatter()
-            formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-
-            if let deadline = task.deadline {
-                let deadlineString = formatter.string(from: deadline)
-                sqlite3_bind_text(statement, 4, deadlineString, -1, nil)
-            } else {
-                sqlite3_bind_null(statement, 4)
+        do {
+            guard let taskId = task.dbId else {
+                print("任务ID不能为空")
+                return false
             }
 
-            sqlite3_bind_int(statement, 5, task.completed ? 1 : 0)
-            sqlite3_bind_int(statement, 6, Int32(truncating: task.id.uuidString.hashValue as NSNumber))
+            let update = tasks
+                .filter(self.id == taskId)
+                .update(
+                    self.title <- task.title,
+                    self.category <- task.category.rawValue,
+                    self.priority <- task.priority.rawValue,
+                    self.deadline <- task.deadline,
+                    self.completed <- task.completed ? 1 : 0,
+                    self.completedAt <- task.completedAt
+                )
 
-            let result = sqlite3_step(statement) == SQLITE_DONE
-            sqlite3_finalize(statement)
-            return result
+            let changes = try db.run(update)
+            return changes > 0
+        } catch {
+            print("更新任务失败: \(error)")
+            return false
         }
-
-        sqlite3_finalize(statement)
-        return false
     }
 
     // 删除任务
-    func deleteTask(id: UUID) -> Bool {
-        var statement: OpaquePointer?
-        let sql = "DELETE FROM tasks WHERE id = ?;"
-
-        if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
-            sqlite3_bind_int(statement, 1, Int32(truncating: id.uuidString.hashValue as NSNumber))
-
-            let result = sqlite3_step(statement) == SQLITE_DONE
-            sqlite3_finalize(statement)
-            return result
+    func deleteTask(id: Int64) -> Bool {
+        do {
+            let deleteQuery = tasks.filter(self.id == id)
+            let changes = try db.run(deleteQuery.delete())
+            return changes > 0
+        } catch {
+            print("删除任务失败: \(error)")
+            return false
         }
-
-        sqlite3_finalize(statement)
-        return false
     }
 
     // 获取任务统计
     func getTaskStats() -> (total: Int, completed: Int, pending: Int) {
-        var total = 0
-        var completed = 0
+        do {
+            let totalCount = try db.scalar(tasks.count)
+            let completedCount = try db.scalar(tasks.filter(completed == 1).count)
 
-        // 获取总数
-        var statement: OpaquePointer?
-        let totalSQL = "SELECT COUNT(*) FROM tasks;"
-        if sqlite3_prepare_v2(db, totalSQL, -1, &statement, nil) == SQLITE_OK {
-            if sqlite3_step(statement) == SQLITE_ROW {
-                total = Int(sqlite3_column_int(statement, 0))
-            }
+            return (total: totalCount, completed: completedCount, pending: totalCount - completedCount)
+        } catch {
+            print("获取任务统计失败: \(error)")
+            return (total: 0, completed: 0, pending: 0)
         }
-        sqlite3_finalize(statement)
-
-        // 获取已完成数
-        let completedSQL = "SELECT COUNT(*) FROM tasks WHERE completed = 1;"
-        if sqlite3_prepare_v2(db, completedSQL, -1, &statement, nil) == SQLITE_OK {
-            if sqlite3_step(statement) == SQLITE_ROW {
-                completed = Int(sqlite3_column_int(statement, 0))
-            }
-        }
-        sqlite3_finalize(statement)
-
-        return (total: total, completed: completed, pending: total - completed)
     }
 
-    // 通用查询方法
-    private func getTasksWithSQL(_ sql: String, bind: ((OpaquePointer?) -> Void)? = nil) -> [Task] {
-        var tasks: [Task] = []
-        var statement: OpaquePointer?
+    // 获取高优先级任务
+    func getHighPriorityTasks() -> [Task] {
+        do {
+            let query = tasks
+                .filter(self.priority == TaskPriority.high.rawValue && self.completed == 0)
+                .order(self.createdAt.asc)
 
-        if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
-            bind?(statement)
+            return try db.prepare(query).map { row in
+                let categoryString = row[self.category]
+                let category = TaskCategory(rawValue: categoryString) ?? .other
 
-            while sqlite3_step(statement) == SQLITE_ROW {
-                let id = Int(sqlite3_column_int(statement, 0))
+                let priorityValue = row[self.priority]
+                let priority = TaskPriority(rawValue: priorityValue) ?? .medium
 
-                let titlePtr = sqlite3_column_text(statement, 1)
-                let title = titlePtr != nil ? String(cString: titlePtr!) : ""
-
-                let categoryPtr = sqlite3_column_text(statement, 2)
-                let categoryString = categoryPtr != nil ? String(cString: categoryPtr!) : "工作项目"
-                let category = TaskCategory(rawValue: categoryString) ?? .work
-
-                let priority = TaskPriority(rawValue: Int(sqlite3_column_int(statement, 3))) ?? .medium
-
-                let deadlinePtr = sqlite3_column_text(statement, 4)
-                var deadline: Date?
-                if deadlinePtr != nil {
-                    let deadlineString = String(cString: deadlinePtr!)
-                    let formatter = DateFormatter()
-                    formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-                    deadline = formatter.date(from: deadlineString)
-                }
-
-                let completed = Int(sqlite3_column_int(statement, 5)) == 1
-
-                let createdAtPtr = sqlite3_column_text(statement, 6)
-                let createdString = createdAtPtr != nil ? String(cString: createdAtPtr!) : ""
-                let formatter = DateFormatter()
-                formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-                let createdAt = formatter.date(from: createdString) ?? Date()
-
-                var task = Task(title: title, category: category, priority: priority, deadline: deadline)
-                task = Task(
-                    title: title,
+                let completedValue = row[self.completed]
+                return Task(
+                    dbId: row[self.id],
+                    title: row[self.title],
                     category: category,
                     priority: priority,
-                    deadline: deadline
+                    deadline: row[self.deadline],
+                    completed: completedValue != 0,
+                    createdAt: row[self.createdAt],
+                    completedAt: row[self.completedAt]
                 )
-
-                tasks.append(task)
             }
+        } catch {
+            print("获取高优先级任务失败: \(error)")
+            return []
         }
+    }
 
-        sqlite3_finalize(statement)
-        return tasks
+    // 获取过期任务
+    func getOverdueTasks() -> [Task] {
+        do {
+            let query = tasks
+                .filter(self.deadline < Date() && self.completed == 0)
+                .order(self.deadline.asc)
+
+            return try db.prepare(query).map { row in
+                let categoryString = row[self.category]
+                let category = TaskCategory(rawValue: categoryString) ?? .other
+
+                let priorityValue = row[self.priority]
+                let priority = TaskPriority(rawValue: priorityValue) ?? .medium
+
+                let completedValue = row[self.completed]
+                return Task(
+                    dbId: row[self.id],
+                    title: row[self.title],
+                    category: category,
+                    priority: priority,
+                    deadline: row[self.deadline],
+                    completed: completedValue != 0,
+                    createdAt: row[self.createdAt],
+                    completedAt: row[self.completedAt]
+                )
+            }
+        } catch {
+            print("获取过期任务失败: \(error)")
+            return []
+        }
+    }
+
+    // 获取即将到期任务（24小时内）
+    func getDueSoonTasks() -> [Task] {
+        do {
+            let now = Date()
+            let twentyFourHoursLater = Calendar.current.date(byAdding: .hour, value: 24, to: now)!
+            let twentyFourHoursBefore = Calendar.current.date(byAdding: .hour, value: -24, to: now)!
+
+            let query = tasks
+                .filter(
+                    self.deadline >= twentyFourHoursBefore && self.deadline <= twentyFourHoursLater && self.completed == 0
+                )
+                .order(self.deadline.asc)
+
+            return try db.prepare(query).map { row in
+                let categoryString = row[self.category]
+                let category = TaskCategory(rawValue: categoryString) ?? .other
+
+                let priorityValue = row[self.priority]
+                let priority = TaskPriority(rawValue: priorityValue) ?? .medium
+
+                let completedValue = row[self.completed]
+                return Task(
+                    dbId: row[self.id],
+                    title: row[self.title],
+                    category: category,
+                    priority: priority,
+                    deadline: row[self.deadline],
+                    completed: completedValue != 0,
+                    createdAt: row[self.createdAt],
+                    completedAt: row[self.completedAt]
+                )
+            }
+        } catch {
+            print("获取即将到期任务失败: \(error)")
+            return []
+        }
     }
 }
+

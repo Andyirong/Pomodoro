@@ -1,7 +1,8 @@
 //
-//  DatabaseManager.swift
+//  DatabaseManager_New.swift
 //  Demo5
 //
+//  使用SQLite.swift的新版本数据库管理器
 //  Created by Andy on 2025/12/17.
 //
 
@@ -14,6 +15,8 @@ class DatabaseManager {
 
     private init() {}
 
+    // MARK: - 数据库连接
+
     func openDatabase() -> Bool {
         do {
             let fileURL = try FileManager.default
@@ -22,7 +25,7 @@ class DatabaseManager {
 
             db = try Connection(fileURL.path)
 
-            // 优化数据库设置
+            // 优化设置
             try db?.execute("PRAGMA foreign_keys = ON")
             try db?.execute("PRAGMA journal_mode = WAL")
             try db?.execute("PRAGMA synchronous = NORMAL")
@@ -37,10 +40,28 @@ class DatabaseManager {
         }
     }
 
+    func getDatabase() -> Connection? {
+        return db
+    }
+
+    // MARK: - 表创建
+
     private func createTables() throws {
         guard let db = db else { throw DatabaseError.notConnected }
 
-        // 创建 timer_history 表
+        // 创建表定义
+        try createTimerHistoryTable(db)
+        try createTasksTable(db)
+        try createUserSettingsTable(db)
+        try createAchievementsTable(db)
+        try createStatisticsTable(db)
+
+        // 初始化数据
+        try initializeDefaultSettings(db)
+        try initializeDefaultAchievements(db)
+    }
+
+    private func createTimerHistoryTable(_ db: Connection) throws {
         try db.run("""
             CREATE TABLE IF NOT EXISTS timer_history (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -51,8 +72,9 @@ class DatabaseManager {
                 usage_count INTEGER DEFAULT 1
             );
         """)
+    }
 
-        // 创建 tasks 表
+    private func createTasksTable(_ db: Connection) throws {
         try db.run("""
             CREATE TABLE IF NOT EXISTS tasks (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -61,12 +83,12 @@ class DatabaseManager {
                 priority INTEGER DEFAULT 1,
                 deadline DATETIME,
                 completed INTEGER DEFAULT 0,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                completed_at DATETIME
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             );
         """)
+    }
 
-        // 创建 user_settings 表
+    private func createUserSettingsTable(_ db: Connection) throws {
         try db.run("""
             CREATE TABLE IF NOT EXISTS user_settings (
                 key TEXT PRIMARY KEY,
@@ -76,8 +98,9 @@ class DatabaseManager {
                 longest_streak INTEGER DEFAULT 0
             );
         """)
+    }
 
-        // 创建 achievements 表
+    private func createAchievementsTable(_ db: Connection) throws {
         try db.run("""
             CREATE TABLE IF NOT EXISTS achievements (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -88,8 +111,9 @@ class DatabaseManager {
                 points_awarded INTEGER
             );
         """)
+    }
 
-        // 创建 statistics 表
+    private func createStatisticsTable(_ db: Connection) throws {
         try db.run("""
             CREATE TABLE IF NOT EXISTS statistics (
                 date DATE PRIMARY KEY,
@@ -98,97 +122,64 @@ class DatabaseManager {
                 tasks_done INTEGER DEFAULT 0
             );
         """)
-
-        // 添加缺失的列（用于数据库升级）
-        try addMissingColumns()
-
-        // 初始化默认设置
-        initializeDefaultSettings()
-        initializeDefaultAchievements()
     }
 
-    private func addMissingColumns() throws {
-        guard let db = db else { throw DatabaseError.notConnected }
+    // MARK: - 初始化数据
 
-        // 检查并添加 completed_at 列到 tasks 表
-        do {
-            // 尝试查询 completed_at 列是否存在
-            _ = try db.scalar("SELECT completed_at FROM tasks LIMIT 1")
-        } catch {
-            // 如果列不存在，添加它
-            try db.run("ALTER TABLE tasks ADD COLUMN completed_at DATETIME")
-            print("✅ 添加 completed_at 列到 tasks 表")
-        }
-    }
+    private func initializeDefaultSettings(_ db: Connection) throws {
+        let count = try db.scalar("SELECT COUNT(*) FROM user_settings;") as! Int64
 
-    private func initializeDefaultSettings() {
-        guard let db = db else { return }
+        if count == 0 {
+            let defaultSettings: [(String, String)] = [
+                ("total_points", "0"),
+                ("current_streak", "0"),
+                ("longest_streak", "0"),
+                ("sound_enabled", "true"),
+                ("vibration_enabled", "true"),
+                ("default_minutes", "25"),
+                ("default_seconds", "0")
+            ]
 
-        do {
-            let count = try db.scalar("SELECT COUNT(*) FROM user_settings;") as! Int64
-
-            if count == 0 {
-                let defaultSettings: [(String, String)] = [
-                    ("total_points", "0"),
-                    ("current_streak", "0"),
-                    ("longest_streak", "0"),
-                    ("sound_enabled", "true"),
-                    ("vibration_enabled", "true"),
-                    ("default_minutes", "25"),
-                    ("default_seconds", "0")
-                ]
-
-                for (key, value) in defaultSettings {
-                    try db.run("INSERT INTO user_settings (key, value) VALUES (?, ?);", key, value)
-                }
-                print("✅ 默认设置初始化完成")
+            for (key, value) in defaultSettings {
+                try db.run("INSERT INTO user_settings (key, value) VALUES (?, ?);", key, value)
             }
-        } catch {
-            print("⚠️ 设置初始化失败: \(error)")
+            print("✅ 默认设置初始化完成")
         }
     }
 
-    private func initializeDefaultAchievements() {
-        guard let db = db else { return }
+    private func initializeDefaultAchievements(_ db: Connection) throws {
+        let count = try db.scalar("SELECT COUNT(*) FROM achievements;") as! Int64
 
-        do {
-            let count = try db.scalar("SELECT COUNT(*) FROM achievements;") as! Int64
+        if count == 0 {
+            let achievements = [
+                (1, "初学者", "完成第一个番茄钟", 1, 10),
+                (2, "专注入门", "累计完成10个番茄钟", 10, 50),
+                (3, "专注达人", "累计完成50个番茄钟", 50, 200),
+                (4, "专注大师", "累计完成100个番茄钟", 100, 500),
+                (5, "连续三天", "连续3天使用番茄钟", 0, 50),
+                (6, "连续一周", "连续7天使用番茄钟", 0, 100),
+                (7, "连续一月", "连续30天使用番茄钟", 0, 500),
+                (8, "积分新手", "累计获得100积分", 100, 20),
+                (9, "积分高手", "累计获得500积分", 500, 100),
+                (10, "积分大师", "累计获得1000积分", 1000, 200),
+                (11, "任务完成者", "完成10个任务", 10, 50),
+                (12, "高效工作者", "完成50个任务", 50, 200),
+                (13, "马拉松选手", "完成一次90分钟番茄钟", 1, 50),
+                (14, "早起鸟儿", "早上8点前完成番茄钟", 1, 30),
+                (15, "夜猫子", "晚上10点后完成番茄钟", 1, 30)
+            ]
 
-            if count == 0 {
-                let achievements = [
-                    (1, "初学者", "完成第一个番茄钟", 1, 10),
-                    (2, "专注入门", "累计完成10个番茄钟", 10, 50),
-                    (3, "专注达人", "累计完成50个番茄钟", 50, 200),
-                    (4, "专注大师", "累计完成100个番茄钟", 100, 500),
-                    (5, "连续三天", "连续3天使用番茄钟", 0, 50),
-                    (6, "连续一周", "连续7天使用番茄钟", 0, 100),
-                    (7, "连续一月", "连续30天使用番茄钟", 0, 500),
-                    (8, "积分新手", "累计获得100积分", 100, 20),
-                    (9, "积分高手", "累计获得500积分", 500, 100),
-                    (10, "积分大师", "累计获得1000积分", 1000, 200),
-                    (11, "任务完成者", "完成10个任务", 10, 50),
-                    (12, "高效工作者", "完成50个任务", 50, 200),
-                    (13, "马拉松选手", "完成一次90分钟番茄钟", 1, 50),
-                    (14, "早起鸟儿", "早上8点前完成番茄钟", 1, 30),
-                    (15, "夜猫子", "晚上10点后完成番茄钟", 1, 30)
-                ]
-
-                for achievement in achievements {
-                    try db.run("""
-                        INSERT INTO achievements (id, name, description, points_required, points_awarded)
-                        VALUES (?, ?, ?, ?, ?);
-                    """, achievement.0, achievement.1, achievement.2, achievement.3, achievement.4)
-                }
-                print("✅ 默认成就初始化完成")
+            for achievement in achievements {
+                try db.run("""
+                    INSERT INTO achievements (id, name, description, points_required, points_awarded)
+                    VALUES (?, ?, ?, ?, ?);
+                """, achievement.0, achievement.1, achievement.2, achievement.3, achievement.4)
             }
-        } catch {
-            print("⚠️ 成就初始化失败: \(error)")
+            print("✅ 默认成就初始化完成")
         }
     }
 
-    func getDatabase() -> Connection? {
-        return db
-    }
+    // MARK: - 辅助方法
 
     func closeDatabase() {
         db = nil
@@ -223,6 +214,8 @@ class DatabaseManager {
         }
     }
 }
+
+// MARK: - 错误定义
 
 enum DatabaseError: Error {
     case notConnected
